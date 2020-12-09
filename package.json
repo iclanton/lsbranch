@@ -15,6 +15,9 @@
     "url": "https://github.com/iclanton/lsbranch/issues"
   },
   "homepage": "https://github.com/iclanton/lsbranch#readme",
+  "bin": {
+    "lsbranch": "./bin/lsbranch"
+  },
   "devDependencies": {
     "@rushstack/eslint-config": "~2.3.1",
     "@rushstack/heft": "~0.22.6",
