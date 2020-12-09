@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "LSBranch Configuration Schema",
+  "description": "Defines the configuration for the ~/.lsbranchrc.json file",
+
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["repos"],
+  "properties": {
+    "$schema": {
+      "description": "Part of the JSON Schema standard, this optional keyword declares the URL of the schema that the file conforms to. Editors may download the schema and use it to perform syntax highlighting.",
+      "type": "string"
+    },
+
+    "repos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "The filesystem path to the root of the repo clone."
+          },
+          "alias": {
+            "type": "string",
+            "description": "A shorthand name for this repo."
+          }
+        }
+      }
+    }
+  }
+}
