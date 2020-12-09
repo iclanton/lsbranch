@@ -30,7 +30,7 @@ export class LSBranchCommandLineParser extends CommandLineParser {
       parameterLongName: '--config',
       parameterShortName: '-c',
       argumentName: 'PATH',
-      description: 'Override the config file path. Defaults to ~/.lsbranch.json'
+      description: 'Override the config file path. Defaults to ~/.lsbranchrc.json'
     });
   }
 

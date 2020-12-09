@@ -8,7 +8,7 @@ This is a simple tool for listing the checked-out branches across all of your cl
 
 Install `lsbranch` globally with `npm install -g lsbranch`.
 
-Then create a config file in your HOME folder called `.lsbranch.json` enumerating your repos in the following format:
+Then create a config file in your HOME folder called `.lsbranchrc.json` enumerating your repos in the following format:
 
 ```JavaScript
 {
