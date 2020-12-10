@@ -48,12 +48,6 @@ export async function getRepoDataAsync(
   }
 
   if (gitHeadFileContents) {
-    // The .git/HEAD file can look like:
-    // ```
-    // ref: refs/heads/branchname
-    // ```
-    //
-    // Or it can contain a commit SHA
     const branchName: string = parseGitBranchOrSha(gitHeadFileContents);
     return {
       repo,
