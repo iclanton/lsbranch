@@ -4,7 +4,12 @@
 import { CommandLineParser, CommandLineStringParameter } from '@rushstack/ts-command-line';
 import { Terminal, ConsoleTerminalProvider, AlreadyReportedError } from '@rushstack/node-core-library';
 
+import { ILSBranchActionBaseOptions } from './actions/LSBranchActionBase';
 import { LSAction } from './actions/LSAction';
+import { AddAction } from './actions/AddAction';
+import { LSBranchConfig } from '../config/LSBranchConfig';
+
+export const LSBRANCH_TOOL_FILENAME: string = 'lsbranch';
 
 export class LSBranchCommandLineParser extends CommandLineParser {
   private _terminal: Terminal;
@@ -16,13 +21,19 @@ export class LSBranchCommandLineParser extends CommandLineParser {
 
   public constructor() {
     super({
-      toolFilename: 'lsbranch',
+      toolFilename: LSBRANCH_TOOL_FILENAME,
       toolDescription: 'LSBranch is a simple tool for listing the active branches in git clones.'
     });
 
     this._terminal = new Terminal(new ConsoleTerminalProvider());
 
-    this.addAction(new LSAction({ terminal: this.terminal, configPath: this._configPathParameter.value }));
+    const actionOptions: ILSBranchActionBaseOptions = {
+      terminal: this.terminal,
+      config: new LSBranchConfig(() => this._configPathParameter.value)
+    };
+
+    this.addAction(new LSAction(actionOptions));
+    this.addAction(new AddAction(actionOptions));
   }
 
   protected onDefineParameters(): void {

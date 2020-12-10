@@ -1,36 +1,29 @@
 // Copyright (c) Ian Clanton-Thuon. All rights reserved. Licensed under the MIT license.
 // See LICENSE in the project root for license information.
 
-import { AlreadyReportedError, Colors, IColorableSequence, Terminal } from '@rushstack/node-core-library';
-import { CommandLineAction, CommandLineFlagParameter } from '@rushstack/ts-command-line';
+import { AlreadyReportedError, Colors, IColorableSequence } from '@rushstack/node-core-library';
+import { CommandLineFlagParameter } from '@rushstack/ts-command-line';
 
-import { ILSBranchConfigRepo, LSBranchConfig } from '../../config/LSBranchConfig';
+import { ILSBranchConfigRepo } from '../../config/LSBranchConfig';
 import {
   getRepoDataAsync,
   IGetRepoDataErrorResult,
   IGetRepoDataResult,
   IGetRepoDataSuccessResult
 } from '../../repoData/RepoData';
+import { ILSBranchActionBaseOptions, LSBranchActionBase } from './LSBranchActionBase';
+import { ADD_ACTION_NAME } from './AddAction';
+import { LSBRANCH_TOOL_FILENAME } from '../LSBranchCommandLineParser';
 
-export interface ILSActionOptions {
-  terminal: Terminal;
-  configPath: string | undefined;
-}
-
-export class LSAction extends CommandLineAction {
-  private _terminal: Terminal;
-  private _configPath: string | undefined;
+export class LSAction extends LSBranchActionBase {
   private _jsonFlag!: CommandLineFlagParameter;
 
-  public constructor(options: ILSActionOptions) {
-    super({
+  public constructor(options: ILSBranchActionBaseOptions) {
+    super(options, {
       actionName: 'ls',
       summary: 'List branches.',
       documentation: ''
     });
-
-    this._terminal = options.terminal;
-    this._configPath = options.configPath;
   }
 
   public onDefineParameters(): void {
@@ -41,22 +34,26 @@ export class LSAction extends CommandLineAction {
   }
 
   protected async onExecute(): Promise<void> {
-    const config: LSBranchConfig = new LSBranchConfig(this._configPath);
-
-    const configExists: boolean = await config.getConfigExistsAsync();
+    const configExists: boolean = await this._config.getConfigExistsAsync();
     if (!configExists) {
-      const configPath: string = this._configPath || LSBranchConfig.getDefaultConfigPath();
-      this._terminal.writeErrorLine(`Config file does not exist: ${configPath}`);
+      if (this._config.isDefaultConfigPath) {
+        this._terminal.writeErrorLine(
+          `No repos have been configured. Add a repo with "${LSBRANCH_TOOL_FILENAME} ${ADD_ACTION_NAME}"`
+        );
+      } else {
+        this._terminal.writeErrorLine(`Config file does not exist: ${this._config.configPath}`);
+      }
+
       throw new AlreadyReportedError();
     }
 
-    const validationResult: boolean = await config.validateAsync(this._terminal);
+    const validationResult: boolean = await this._config.validateAsync(this._terminal);
     if (!validationResult) {
       this._terminal.writeErrorLine('Found config validation errors.');
       throw new AlreadyReportedError();
     }
 
-    const repos: ILSBranchConfigRepo[] = await config.getConfigReposAsync();
+    const repos: ILSBranchConfigRepo[] = await this._config.getConfigReposAsync();
     const reposData: IGetRepoDataResult[] = await Promise.all(repos.map((repo) => getRepoDataAsync(repo)));
     if (this._jsonFlag.value) {
       this._terminal.writeLine(JSON.stringify(reposData));
