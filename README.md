@@ -8,31 +8,24 @@ This is a simple tool for listing the checked-out branches across all of your cl
 
 Install `lsbranch` globally with `npm install -g lsbranch`.
 
-Then create a config file in your HOME folder called `.lsbranchrc.json` enumerating your repos in the following format:
+Then, run `lsbranch add --path /path/to/your-repo [--alias repoAlias]` to configure repos. For example:
 
-```JavaScript
-{
-  "repos": [
-    {
-      "path": "/path/to/repo1", // Or, "C:\\path\\to\\repo" on Windows
-      "alias" "Repo 1" // The "alias" field is optional
-    },
-    {
-      "path": "/path/to/repo2",
-      "alias" "Repo 2"
-    }
-  ]
-}
+```BASH
+> lsbranch add --path /code/my-repo1/ --alias Repo1
+> lsbranch add --path /code/my-repo2/ --alias Repo2
+> lsbranch add --path /code/my-other-repo/
+> lsbranch add --path C:\code\my-repo # On Windows
 ```
 
 ## Usage
 
-Run `lsbranch ls` to see the listed repos' currently checked out branches
+Run `lsbranch ls` to see the configured repos' currently checked out branches
 
-```
+```BASH
 > lsbranch ls
-Repo 1  main
-Repo 2  feature/branch
+Repo 1                main
+Repo 2                feature/branch
+/code/my-other-repo/  master
 ```
 
 Thats it!
