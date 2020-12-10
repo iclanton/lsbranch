@@ -1,5 +1,7 @@
 # `lsbranch`
 
+[![npm version](https://badge.fury.io/js/lsbranch.svg)](https://badge.fury.io/js/lsbranch)
+
 Do you ever find yourself working on multiple feature branches across a number of clones of the same repo?
 
 This is a simple tool for listing the checked-out branches across all of your clones!
