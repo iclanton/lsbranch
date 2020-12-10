@@ -1,9 +1,8 @@
 // Copyright (c) Ian Clanton-Thuon. All rights reserved. Licensed under the MIT license.
 // See LICENSE in the project root for license information.
 
-import { AlreadyReportedError, Terminal } from '@rushstack/node-core-library';
+import { AlreadyReportedError, Colors, IColorableSequence, Terminal } from '@rushstack/node-core-library';
 import { CommandLineAction, CommandLineFlagParameter } from '@rushstack/ts-command-line';
-import CliTable from 'cli-table';
 
 import { ILSBranchConfigRepo, LSBranchConfig } from '../../config/LSBranchConfig';
 import {
@@ -62,43 +61,42 @@ export class LSAction extends CommandLineAction {
     if (this._jsonFlag.value) {
       this._terminal.writeLine(JSON.stringify(reposData));
     } else {
-      const table: CliTable = new CliTable({
-        chars: {
-          'bottom-left': '',
-          'bottom-mid': '',
-          'bottom-right': '',
-          'left-mid': '',
-          'mid-mid': '',
-          'right-mid': '',
-          'top-left': '',
-          'top-mid': '',
-          'top-right': '',
-          bottom: '',
-          left: '',
-          mid: '',
-          middle: ' ', // Single space
-          right: '',
-          top: ''
-        },
-        style: { 'padding-left': 0, 'padding-right': 0 }
-      });
+      this._printDataAsTable(reposData);
+    }
+  }
 
-      for (const getRepoDataResult of reposData) {
-        const repoDataError: IGetRepoDataErrorResult = getRepoDataResult as IGetRepoDataErrorResult;
-        const repoData: IGetRepoDataSuccessResult = getRepoDataResult as IGetRepoDataSuccessResult;
-        let resultColumnContents;
-        if (repoDataError.error) {
-          resultColumnContents = repoDataError.error.message;
-        } else if (repoData.data) {
-          resultColumnContents = repoData.data.branchName;
-        } else {
-          throw new Error('Unexpected repo data result. Expected a "data" or "error" property.');
-        }
+  private _printDataAsTable(reposData: IGetRepoDataResult[]): void {
+    let nameColumnLongestElementLength: number = 0;
+    const rows: [string, string | IColorableSequence][] = [];
+    for (const repoData of reposData) {
+      const nameColumnContents: string = repoData.repo.alias || repoData.repo.path;
 
-        table.push([getRepoDataResult.repo.alias || getRepoDataResult.repo.path, resultColumnContents]);
+      const { error: getRepoDataError, data } = repoData as IGetRepoDataErrorResult &
+        IGetRepoDataSuccessResult;
+      let resultColumnContents: string | IColorableSequence;
+      if (getRepoDataError) {
+        resultColumnContents = Colors.red(getRepoDataError.message);
+      } else if (data) {
+        resultColumnContents = data.branchName;
+      } else {
+        throw new Error('Unexpected repo data result. Expected a "data" or "error" property.');
       }
 
-      this._terminal.writeLine(table.toString());
+      rows.push([nameColumnContents, resultColumnContents]);
+
+      const nameColumnContentsLength: number = nameColumnContents.length;
+      nameColumnLongestElementLength =
+        nameColumnContentsLength > nameColumnLongestElementLength
+          ? nameColumnContentsLength
+          : nameColumnLongestElementLength;
+    }
+
+    const nameColumnWidth: number = nameColumnLongestElementLength + 2;
+
+    for (const [nameColumnContents, dataColumnContents] of rows) {
+      const nameColumnPaddingLength: number = nameColumnWidth - nameColumnContents.length;
+      const nameColumnPadding: string = new Array(nameColumnPaddingLength + 1).join(' ');
+      this._terminal.writeLine(nameColumnContents, nameColumnPadding, dataColumnContents);
     }
   }
 }
