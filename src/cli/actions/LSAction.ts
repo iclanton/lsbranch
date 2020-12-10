@@ -10,13 +10,17 @@ import {
   IGetRepoDataErrorResult,
   IGetRepoDataResult,
   IGetRepoDataSuccessResult
-} from '../../repoData/RepoData';
+} from '../../util/RepoData';
 import { ILSBranchActionBaseOptions, LSBranchActionBase } from './LSBranchActionBase';
 import { ADD_ACTION_NAME } from './AddAction';
 import { LSBRANCH_TOOL_FILENAME } from '../LSBranchCommandLineParser';
 
 export class LSAction extends LSBranchActionBase {
   private _jsonFlag!: CommandLineFlagParameter;
+
+  protected get _outputIsMachineReadable(): boolean {
+    return this._jsonFlag.value;
+  }
 
   public constructor(options: ILSBranchActionBaseOptions) {
     super(options, {
@@ -33,7 +37,7 @@ export class LSAction extends LSBranchActionBase {
     });
   }
 
-  protected async onExecute(): Promise<void> {
+  protected async _executeInnerAsync(): Promise<void> {
     const configExists: boolean = await this._config.getConfigExistsAsync();
     if (!configExists) {
       if (this._config.isDefaultConfigPath) {
@@ -55,6 +59,7 @@ export class LSAction extends LSBranchActionBase {
 
     const repos: ILSBranchConfigRepo[] = await this._config.getConfigReposAsync();
     const reposData: IGetRepoDataResult[] = await Promise.all(repos.map((repo) => getRepoDataAsync(repo)));
+
     if (this._jsonFlag.value) {
       this._terminal.writeLine(JSON.stringify(reposData));
     } else {

@@ -4,7 +4,7 @@
 import { AlreadyReportedError } from '@rushstack/node-core-library';
 import { CommandLineFlagParameter, CommandLineStringParameter } from '@rushstack/ts-command-line';
 import { ILSBranchConfigRepo } from '../../config/LSBranchConfig';
-import { getRepoDataAsync, IGetRepoDataErrorResult } from '../../repoData/RepoData';
+import { getRepoDataAsync, IGetRepoDataErrorResult } from '../../util/RepoData';
 
 import { ILSBranchActionBaseOptions, LSBranchActionBase } from './LSBranchActionBase';
 
@@ -14,6 +14,8 @@ export class AddAction extends LSBranchActionBase {
   private _pathParameter!: CommandLineStringParameter;
   private _aliasParameter!: CommandLineStringParameter;
   private _noValidate!: CommandLineFlagParameter;
+
+  protected _outputIsMachineReadable: boolean = false;
 
   public constructor(options: ILSBranchActionBaseOptions) {
     super(options, {
@@ -43,7 +45,7 @@ export class AddAction extends LSBranchActionBase {
     });
   }
 
-  protected async onExecute(): Promise<void> {
+  protected async _executeInnerAsync(): Promise<void> {
     const configExists: boolean = await this._config.getConfigExistsAsync();
     if (configExists) {
       const validationResult: boolean = await this._config.validateAsync(this._terminal);

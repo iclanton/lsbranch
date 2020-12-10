@@ -12,10 +12,13 @@ export interface ILSBranchConfigRepo {
 }
 
 export interface ILSBranchConfig {
+  lastUpdateCheck?: number;
   repos: ILSBranchConfigRepo[];
 }
 
 const UNIQUE_PROP_NAMES: (keyof ILSBranchConfigRepo)[] = ['alias', 'path'];
+
+const UPDATE_CHECK_FREQUENCY: number = 24 * 60 * 60 * 1000; // Daily
 
 export class LSBranchConfig {
   private _configPath: string | undefined;
@@ -78,6 +81,21 @@ export class LSBranchConfig {
     return this._configData.repos;
   }
 
+  public async getShouldCheckForUpdatesAsync(): Promise<boolean> {
+    await this._ensureConfigLoadedAsync();
+    const nextUpdateTime: number = (this._configData.lastUpdateCheck || 0) + UPDATE_CHECK_FREQUENCY;
+    const now: number = Date.now();
+    return nextUpdateTime < now;
+  }
+
+  public async setLastUpdateCheckAsync(): Promise<void> {
+    const newConfigData: ILSBranchConfig = {
+      ...this._configData,
+      lastUpdateCheck: Date.now()
+    };
+    await this._updateConfigDataAsync(newConfigData);
+  }
+
   public async tryAddRepoAsync(repo: ILSBranchConfigRepo, terminal: Terminal): Promise<boolean> {
     await this._ensureConfigLoadedAsync();
 
@@ -101,17 +119,10 @@ export class LSBranchConfig {
       return false;
     } else {
       const newConfigData: ILSBranchConfig = {
+        ...this._configData,
         repos: [...this._configData.repos, repo]
       };
-      await JsonFile.saveAsync(newConfigData, this.configPath, {
-        updateExistingFile: true,
-        prettyFormatting: true
-      });
-      this._configExists = true;
-
-      // Only update data if we're able to successfully save the file
-      this._configData = newConfigData;
-      this._fillPropNameCounters();
+      await this._updateConfigDataAsync(newConfigData);
 
       return true;
     }
@@ -119,23 +130,40 @@ export class LSBranchConfig {
 
   private async _ensureConfigLoadedAsync(): Promise<void> {
     if (!this._configLoaded) {
+      let errorThrown: boolean = false;
       try {
         this._configData = await JsonFile.loadAndValidateAsync(this.configPath, this._schema);
         this._configExists = true;
       } catch (e) {
         if (FileSystem.isNotExistError(e)) {
-          this._configExists = false;
           this._configData = {
+            lastUpdateCheck: Date.now(),
             repos: []
           };
+          this._configExists = false;
         } else {
+          errorThrown = true;
           throw e;
         }
       } finally {
-        this._fillPropNameCounters();
-        this._configLoaded = true;
+        if (!errorThrown) {
+          this._fillPropNameCounters();
+          this._configLoaded = true;
+        }
       }
     }
+  }
+
+  private async _updateConfigDataAsync(newConfigData: ILSBranchConfig): Promise<void> {
+    await JsonFile.saveAsync(newConfigData, this.configPath, {
+      updateExistingFile: true,
+      prettyFormatting: true
+    });
+    this._configExists = true;
+
+    // Only update data if we're able to successfully save the file
+    this._configData = newConfigData;
+    this._fillPropNameCounters();
   }
 
   private _fillPropNameCounters(): void {
