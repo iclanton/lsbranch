@@ -135,7 +135,7 @@ export class LSBranchConfig {
         this._configData = await JsonFile.loadAndValidateAsync(this.configPath, this._schema);
         this._configExists = true;
       } catch (e) {
-        if (FileSystem.isNotExistError(e)) {
+        if (FileSystem.isNotExistError(e as NodeJS.ErrnoException)) {
           this._configData = {
             lastUpdateCheck: Date.now(),
             repos: []

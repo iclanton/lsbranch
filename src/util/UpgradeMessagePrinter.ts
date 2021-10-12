@@ -74,7 +74,7 @@ export class UpgradeMessagePrinter {
       });
 
       const response: Response = await fetch(queryUrl, { headers, timeout: TIMEOUT });
-      const responseJson: INpmQueryResponse = await response.json();
+      const responseJson: INpmQueryResponse = (await response.json()) as INpmQueryResponse;
       let latestVersion: SemVer | null;
       if (responseJson['dist-tags'] && responseJson['dist-tags'].latest) {
         latestVersion = new SemVer(responseJson['dist-tags'].latest);

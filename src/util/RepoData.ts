@@ -33,7 +33,7 @@ export async function getRepoDataAsync(
     gitHeadFileContents = await FileSystem.readFileAsync(gitHeadFilePath);
   } catch (innerError) {
     let error: Error;
-    if (FileSystem.isNotExistError(innerError)) {
+    if (FileSystem.isNotExistError(innerError as NodeJS.ErrnoException)) {
       const gitFolderExists: boolean = await FileSystem.existsAsync(gitFolderPath);
       if (!gitFolderExists) {
         error = new Error(`.git folder doesn't exist`);

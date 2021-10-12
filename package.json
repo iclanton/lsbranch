@@ -19,18 +19,18 @@
     "lsbranch": "./bin/lsbranch"
   },
   "devDependencies": {
-    "@rushstack/eslint-config": "~2.3.1",
-    "@rushstack/heft": "~0.22.6",
-    "@rushstack/heft-node-rig": "~0.1.31",
+    "@rushstack/eslint-config": "~2.4.2",
+    "@rushstack/heft": "~0.41.6",
+    "@rushstack/heft-node-rig": "~1.2.25",
     "@types/heft-jest": "1.0.2",
-    "@types/node": "~14.14.11",
+    "@types/node": "~14.14.45",
     "@types/node-fetch": "2.5.7",
-    "@types/semver": "^7.3.4"
+    "@types/semver": "^7.3.8"
   },
   "dependencies": {
-    "@rushstack/node-core-library": "~3.35.1",
-    "@rushstack/ts-command-line": "~4.7.7",
-    "node-fetch": "~2.6.1",
-    "semver": "^7.3.4"
+    "@rushstack/node-core-library": "~3.42.2",
+    "@rushstack/ts-command-line": "~4.10.1",
+    "node-fetch": "~2.6.5",
+    "semver": "^7.3.5"
   }
 }
