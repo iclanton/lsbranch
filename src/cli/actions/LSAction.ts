@@ -17,6 +17,7 @@ import { LSBRANCH_TOOL_FILENAME } from '../LSBranchCommandLineParser';
 
 export class LSAction extends LSBranchActionBase {
   private _jsonFlag!: CommandLineFlagParameter;
+  private _allFlag!: CommandLineFlagParameter;
 
   protected get _outputIsMachineReadable(): boolean {
     return this._jsonFlag.value;
@@ -34,6 +35,12 @@ export class LSAction extends LSBranchActionBase {
     this._jsonFlag = this.defineFlagParameter({
       parameterLongName: '--json',
       description: 'If specified, present data in JSON format.'
+    });
+
+    this._allFlag = this.defineFlagParameter({
+      parameterLongName: '--all',
+      parameterShortName: '-a',
+      description: 'If specified, display all local branches.'
     });
   }
 
@@ -58,35 +65,44 @@ export class LSAction extends LSBranchActionBase {
     }
 
     const repos: ILSBranchConfigRepo[] = await this._config.getConfigReposAsync();
-    const reposData: IGetRepoDataResult[] = await Promise.all(repos.map((repo) => getRepoDataAsync(repo)));
+    const getAllBranches: boolean = this._allFlag.value;
+    const reposData: IGetRepoDataResult[] = await Promise.all(
+      repos.map((repo) => getRepoDataAsync(repo, getAllBranches))
+    );
 
     if (this._jsonFlag.value) {
       this._terminal.writeLine(JSON.stringify(reposData));
     } else {
-      this._printDataAsTable(reposData);
+      this._printDataAsTable(reposData, getAllBranches);
     }
   }
 
-  private _printDataAsTable(reposData: IGetRepoDataResult[]): void {
+  private _printDataAsTable(reposData: IGetRepoDataResult[], printCheckedOutBranchesInGreen: boolean): void {
     let nameColumnLongestElementLength: number = 0;
-    const rows: [string, string | IColorableSequence][] = [];
+    const rows: [string, (string | IColorableSequence)[]][] = [];
     for (const repoData of reposData) {
-      const nameColumnContents: string = repoData.repo.alias || repoData.repo.path;
-
       const { error: getRepoDataError, data } = repoData as IGetRepoDataErrorResult &
         IGetRepoDataSuccessResult;
-      let resultColumnContents: string | IColorableSequence;
+      let resultColumnContentsLines: (string | IColorableSequence)[] = [];
       if (getRepoDataError) {
-        resultColumnContents = Colors.red(getRepoDataError.message);
+        resultColumnContentsLines = [Colors.red(getRepoDataError.message)];
       } else if (data) {
-        resultColumnContents = data.branchName;
+        resultColumnContentsLines = [
+          printCheckedOutBranchesInGreen ? Colors.green(data.checkedOutBranch) : data.checkedOutBranch
+        ];
+        if (data.otherBranches) {
+          for (const otherBranch of data.otherBranches) {
+            resultColumnContentsLines.push(otherBranch);
+          }
+        }
       } else {
         throw new Error('Unexpected repo data result. Expected a "data" or "error" property.');
       }
 
-      rows.push([nameColumnContents, resultColumnContents]);
+      const nameColumnLine: string = repoData.repo.alias || repoData.repo.path;
+      rows.push([nameColumnLine, resultColumnContentsLines]);
 
-      const nameColumnContentsLength: number = nameColumnContents.length;
+      const nameColumnContentsLength: number = nameColumnLine.length;
       nameColumnLongestElementLength =
         nameColumnContentsLength > nameColumnLongestElementLength
           ? nameColumnContentsLength
@@ -96,9 +112,16 @@ export class LSAction extends LSBranchActionBase {
     const nameColumnWidth: number = nameColumnLongestElementLength + 2;
 
     for (const [nameColumnContents, dataColumnContents] of rows) {
-      const nameColumnPaddingLength: number = nameColumnWidth - nameColumnContents.length;
-      const nameColumnPadding: string = new Array(nameColumnPaddingLength + 1).join(' ');
-      this._terminal.writeLine(nameColumnContents, nameColumnPadding, dataColumnContents);
+      for (let i = 0; i < dataColumnContents.length; i++) {
+        if (i === 0) {
+          const nameColumnPaddingLength: number = nameColumnWidth - nameColumnContents.length;
+          const nameColumnPadding: string = ' '.repeat(nameColumnPaddingLength);
+          this._terminal.writeLine(nameColumnContents, nameColumnPadding, dataColumnContents[i]);
+        } else {
+          const nameColumnPadding: string = ' '.repeat(nameColumnWidth);
+          this._terminal.writeLine(nameColumnPadding, dataColumnContents[i]);
+        }
+      }
     }
   }
 }

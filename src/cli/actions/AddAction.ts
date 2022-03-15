@@ -64,7 +64,10 @@ export class AddAction extends LSBranchActionBase {
     };
 
     if (!this._noValidate.value) {
-      const { error: getRepoDataError } = (await getRepoDataAsync(configRepo)) as IGetRepoDataErrorResult;
+      const { error: getRepoDataError } = (await getRepoDataAsync(
+        configRepo,
+        false
+      )) as IGetRepoDataErrorResult;
       if (getRepoDataError) {
         this._terminal.writeErrorLine(`Specified repo path is not valid: ${getRepoDataError.message}`);
         this._terminal.writeErrorLine(`If this is expected, provide the "${this._noValidate.longName}" flag`);
