@@ -1,0 +1,17 @@
+{
+  "name": "lsbranch",
+  "entries": [
+    {
+      "version": "0.4.2",
+      "tag": "lsbranch_v0.4.2",
+      "date": "Wed, 11 Jan 2023 19:55:09 GMT",
+      "comments": {
+        "patch": [
+          {
+            "comment": "Update dependencies."
+          }
+        ]
+      }
+    }
+  ]
+}
