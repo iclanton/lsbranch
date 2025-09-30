@@ -1,0 +1,44 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`LSBranchCommandLineParser prints the global help 1`] = `
+"usage: lsbranch [-h] [-c PATH] <command> ...
+
+LSBranch is a simple tool for listing the active branches in git clones.
+
+Positional arguments:
+  <command>
+    ls                  List branches.
+    add                 Add a repo.
+
+Optional arguments:
+  -h, --help            Show this help message and exit.
+  -c PATH, --config PATH
+                        Override the config file path. Defaults to ~/.
+                        lsbranchrc.json
+
+[bold]For detailed help about a specific command, use: lsbranch <command> 
+-h[normal]
+"
+`;
+
+exports[`LSBranchCommandLineParser prints the help for each action: add 1`] = `
+"usage: lsbranch add [-h] --path REPO_PATH [--alias ALIAS] [--no-validate]
+
+Optional arguments:
+  -h, --help        Show this help message and exit.
+  --path REPO_PATH  The path to the repo root
+  --alias ALIAS     The repo's alias
+  --no-validate     If specified, do not ensure that the repo being added 
+                    exists and is valid.
+"
+`;
+
+exports[`LSBranchCommandLineParser prints the help for each action: ls 1`] = `
+"usage: lsbranch ls [-h] [--json] [-a]
+
+Optional arguments:
+  -h, --help  Show this help message and exit.
+  --json      If specified, present data in JSON format.
+  -a, --all   If specified, display all local branches.
+"
+`;

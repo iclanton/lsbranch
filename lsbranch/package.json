@@ -3,7 +3,7 @@
   "version": "0.4.1",
   "description": "A simple tool for listing the active branches in git clones. ",
   "scripts": {
-    "build": "heft build --clean"
+    "build": "heft test --clean"
   },
   "repository": {
     "type": "git",
