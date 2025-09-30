@@ -1,23 +1,17 @@
 // Copyright (c) Ian Clanton-Thuon. All rights reserved. Licensed under the MIT license.
 // See LICENSE in the project root for license information.
 
+import path from 'node:path';
 import { FileSystem, JsonFile, JsonSchema } from '@rushstack/node-core-library';
 import { Terminal } from '@rushstack/terminal';
-import path from 'path';
+import schema from './lsbranchrc.schema.json';
+import type { LSBranchConfigurationSchema } from './lsbranchrc.schema.json.d.ts';
 
 export const LSBRANCH_CONFIG_FILENAME: string = '.lsbranchrc.json';
 
-export interface ILSBranchConfigRepo {
-  path: string;
-  alias?: string;
-}
+export type LSBranchConfigurationSchemaRepo = LSBranchConfigurationSchema['repos'][number];
 
-export interface ILSBranchConfig {
-  lastUpdateCheck?: number;
-  repos: ILSBranchConfigRepo[];
-}
-
-const UNIQUE_PROP_NAMES: (keyof ILSBranchConfigRepo)[] = ['alias', 'path'];
+const UNIQUE_PROP_NAMES: (keyof LSBranchConfigurationSchemaRepo)[] = ['alias', 'path'];
 
 const UPDATE_CHECK_FREQUENCY: number = 24 * 60 * 60 * 1000; // Daily
 
@@ -46,15 +40,18 @@ export class LSBranchConfig {
 
   private _configLoaded: boolean = false;
   private _configExists!: boolean;
-  private _configData!: ILSBranchConfig;
+  private _configData!: LSBranchConfigurationSchema;
   private _propNameCounters!: {
-    [TPropName in Required<keyof ILSBranchConfigRepo>]: Map<ILSBranchConfigRepo[TPropName], number>;
+    [TPropName in Required<keyof LSBranchConfigurationSchemaRepo>]: Map<
+      LSBranchConfigurationSchemaRepo[TPropName],
+      number
+    >;
   };
 
   public constructor(getConfigPath: () => string | undefined) {
     this._getConfigPath = getConfigPath;
 
-    this._schema = JsonSchema.fromFile(path.join(__dirname, 'lsbranchrc.schema.json'));
+    this._schema = JsonSchema.fromLoadedObject(schema);
   }
 
   private static _getDefaultConfigPath(): string {
@@ -64,7 +61,7 @@ export class LSBranchConfig {
       throw new Error('Unable to determine user home folder path.');
     }
 
-    return path.join(homeFolderPath, LSBRANCH_CONFIG_FILENAME);
+    return `${homeFolderPath}/${LSBRANCH_CONFIG_FILENAME}`;
   }
 
   public async getConfigExistsAsync(): Promise<boolean> {
@@ -77,7 +74,7 @@ export class LSBranchConfig {
     return this._validateNoDuplicateProperties(UNIQUE_PROP_NAMES, terminal);
   }
 
-  public async getConfigReposAsync(): Promise<ILSBranchConfigRepo[]> {
+  public async getConfigReposAsync(): Promise<LSBranchConfigurationSchemaRepo[]> {
     await this._ensureConfigLoadedAsync();
     return this._configData.repos;
   }
@@ -90,14 +87,14 @@ export class LSBranchConfig {
   }
 
   public async setLastUpdateCheckAsync(): Promise<void> {
-    const newConfigData: ILSBranchConfig = {
+    const newConfigData: LSBranchConfigurationSchema = {
       ...this._configData,
       lastUpdateCheck: Date.now()
     };
     await this._updateConfigDataAsync(newConfigData);
   }
 
-  public async tryAddRepoAsync(repo: ILSBranchConfigRepo, terminal: Terminal): Promise<boolean> {
+  public async tryAddRepoAsync(repo: LSBranchConfigurationSchemaRepo, terminal: Terminal): Promise<boolean> {
     await this._ensureConfigLoadedAsync();
 
     let issues: boolean = false;
@@ -119,7 +116,7 @@ export class LSBranchConfig {
     if (issues) {
       return false;
     } else {
-      const newConfigData: ILSBranchConfig = {
+      const newConfigData: LSBranchConfigurationSchema = {
         ...this._configData,
         repos: [...this._configData.repos, repo]
       };
@@ -155,7 +152,7 @@ export class LSBranchConfig {
     }
   }
 
-  private async _updateConfigDataAsync(newConfigData: ILSBranchConfig): Promise<void> {
+  private async _updateConfigDataAsync(newConfigData: LSBranchConfigurationSchema): Promise<void> {
     await JsonFile.saveAsync(newConfigData, this.configPath, {
       updateExistingFile: true,
       prettyFormatting: true
@@ -186,7 +183,7 @@ export class LSBranchConfig {
   }
 
   private _validateNoDuplicateProperties(
-    propNames: (keyof ILSBranchConfigRepo)[],
+    propNames: (keyof LSBranchConfigurationSchemaRepo)[],
     terminal: Terminal
   ): boolean {
     let issues: boolean = false;

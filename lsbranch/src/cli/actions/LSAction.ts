@@ -5,7 +5,7 @@ import { AlreadyReportedError } from '@rushstack/node-core-library';
 import { Colorize } from '@rushstack/terminal';
 import { CommandLineFlagParameter } from '@rushstack/ts-command-line';
 
-import { ILSBranchConfigRepo } from '../../config/LSBranchConfig';
+import { LSBranchConfigurationSchemaRepo } from '../../config/LSBranchConfig';
 import {
   getRepoDataAsync,
   IGetRepoDataErrorResult,
@@ -63,7 +63,7 @@ export class LSAction extends LSBranchActionBase {
       throw new AlreadyReportedError();
     }
 
-    const repos: ILSBranchConfigRepo[] = await this._config.getConfigReposAsync();
+    const repos: LSBranchConfigurationSchemaRepo[] = await this._config.getConfigReposAsync();
     const getAllBranches: boolean = this._allFlag.value;
     const reposData: IGetRepoDataResult[] = await Promise.all(
       repos.map((repo) => getRepoDataAsync(repo, getAllBranches))

@@ -1,12 +1,12 @@
 // Copyright (c) Ian Clanton-Thuon. All rights reserved. Licensed under the MIT license.
 // See LICENSE in the project root for license information.
 
-import path from 'path';
+import path from 'node:path';
 
 import { AlreadyReportedError } from '@rushstack/node-core-library';
 import { CommandLineFlagParameter, CommandLineStringParameter } from '@rushstack/ts-command-line';
 
-import { ILSBranchConfigRepo } from '../../config/LSBranchConfig';
+import { LSBranchConfigurationSchemaRepo } from '../../config/LSBranchConfig';
 import { getRepoDataAsync, IGetRepoDataErrorResult } from '../../util/RepoData';
 import { ILSBranchActionBaseOptions, LSBranchActionBase } from './LSBranchActionBase';
 
@@ -56,7 +56,7 @@ export class AddAction extends LSBranchActionBase {
     }
 
     const resolvedPath: string = path.resolve(this._pathParameter.value!);
-    const configRepo: ILSBranchConfigRepo = {
+    const configRepo: LSBranchConfigurationSchemaRepo = {
       path: resolvedPath,
       alias: this._aliasParameter.value
     };

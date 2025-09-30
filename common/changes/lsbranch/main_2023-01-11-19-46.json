@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "lsbranch",
+      "comment": "Update dependencies.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "lsbranch"
+}
