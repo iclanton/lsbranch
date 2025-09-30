@@ -1,6 +1,6 @@
 {
   "name": "lsbranch",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "A simple tool for listing the active branches in git clones. ",
   "scripts": {
     "build": "heft build --clean",
