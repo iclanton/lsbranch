@@ -1,7 +1,7 @@
 // Copyright (c) Ian Clanton-Thuon. All rights reserved. Licensed under the MIT license.
 // See LICENSE in the project root for license information.
 
-import { AnsiEscape } from '@rushstack/node-core-library';
+import { AnsiEscape } from '@rushstack/terminal';
 import { LSBranchCommandLineParser } from '../LSBranchCommandLineParser';
 
 describe(LSBranchCommandLineParser.name, () => {

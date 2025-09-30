@@ -17,7 +17,7 @@ interface INpmQueryResponse {
   versions: { [version: string]: unknown };
 }
 
-const TIMEOUT: number = 1000; // One second
+const TIMEOUT_MS: number = 1000; // One second
 
 export class UpgradeMessagePrinter {
   private readonly _printUpgradeMessageAsyncFunction: (terminal: Terminal) => Promise<void>;
@@ -73,7 +73,7 @@ export class UpgradeMessagePrinter {
         Accept: 'application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*'
       });
 
-      const response: Response = await fetch(queryUrl, { headers, timeout: TIMEOUT });
+      const response: Response = await fetch(queryUrl, { headers, signal: AbortSignal.timeout(TIMEOUT_MS) });
       const responseJson: INpmQueryResponse = (await response.json()) as INpmQueryResponse;
       let latestVersion: SemVer | null;
       if (responseJson['dist-tags'] && responseJson['dist-tags'].latest) {
