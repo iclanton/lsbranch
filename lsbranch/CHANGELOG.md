@@ -8,5 +8,4 @@ Tue, 30 Sep 2025 15:23:03 GMT
 ### Patches
 
 - Bump dependencies.
-- Update dependencies.
 
