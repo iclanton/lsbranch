@@ -1,6 +1,6 @@
 # `lsbranch`
 
-[![npm version](https://badge.fury.io/js/lsbranch.svg)](https://badge.fury.io/js/lsbranch)
+[![npm version](https://badge.fury.io/js/lsbranch.svg)](https://badge.fury.io/js/lsbranch)[![CI](https://github.com/iclanton/lsbranch/actions/workflows/ci.yml/badge.svg)](https://github.com/iclanton/lsbranch/actions/workflows/ci.yml)
 
 Do you ever find yourself working on multiple feature branches across a number of clones of the same repo?
 
