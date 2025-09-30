@@ -1,10 +1,11 @@
 // Copyright (c) Ian Clanton-Thuon. All rights reserved. Licensed under the MIT license.
 // See LICENSE in the project root for license information.
 
+import { ChildProcess } from 'node:child_process';
+import { once } from 'node:events';
+import path from 'node:path';
+
 import { Executable, FileSystem } from '@rushstack/node-core-library';
-import { ChildProcess } from 'child_process';
-import { once } from 'events';
-import path from 'path';
 
 import { ILSBranchConfigRepo } from '../config/LSBranchConfig';
 

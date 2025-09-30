@@ -1,7 +1,8 @@
 // Copyright (c) Ian Clanton-Thuon. All rights reserved. Licensed under the MIT license.
 // See LICENSE in the project root for license information.
 
-import { AlreadyReportedError, Colors, IColorableSequence } from '@rushstack/node-core-library';
+import { AlreadyReportedError } from '@rushstack/node-core-library';
+import { Colorize } from '@rushstack/terminal';
 import { CommandLineFlagParameter } from '@rushstack/ts-command-line';
 
 import { ILSBranchConfigRepo } from '../../config/LSBranchConfig';
@@ -16,8 +17,8 @@ import { ADD_ACTION_NAME } from './AddAction';
 import { LSBRANCH_TOOL_FILENAME } from '../LSBranchCommandLineParser';
 
 export class LSAction extends LSBranchActionBase {
-  private _jsonFlag!: CommandLineFlagParameter;
-  private _allFlag!: CommandLineFlagParameter;
+  private readonly _jsonFlag: CommandLineFlagParameter;
+  private readonly _allFlag: CommandLineFlagParameter;
 
   protected get _outputIsMachineReadable(): boolean {
     return this._jsonFlag.value;
@@ -29,9 +30,7 @@ export class LSAction extends LSBranchActionBase {
       summary: 'List branches.',
       documentation: ''
     });
-  }
 
-  public onDefineParameters(): void {
     this._jsonFlag = this.defineFlagParameter({
       parameterLongName: '--json',
       description: 'If specified, present data in JSON format.'
@@ -44,7 +43,7 @@ export class LSAction extends LSBranchActionBase {
     });
   }
 
-  protected async _executeInnerAsync(): Promise<void> {
+  protected override async _executeInnerAsync(): Promise<void> {
     const configExists: boolean = await this._config.getConfigExistsAsync();
     if (!configExists) {
       if (this._config.isDefaultConfigPath) {
@@ -79,16 +78,16 @@ export class LSAction extends LSBranchActionBase {
 
   private _printDataAsTable(reposData: IGetRepoDataResult[], printCheckedOutBranchesInGreen: boolean): void {
     let nameColumnLongestElementLength: number = 0;
-    const rows: [string, (string | IColorableSequence)[]][] = [];
+    const rows: [string, string[]][] = [];
     for (const repoData of reposData) {
       const { error: getRepoDataError, data } = repoData as IGetRepoDataErrorResult &
         IGetRepoDataSuccessResult;
-      let resultColumnContentsLines: (string | IColorableSequence)[] = [];
+      let resultColumnContentsLines: string[] = [];
       if (getRepoDataError) {
-        resultColumnContentsLines = [Colors.red(getRepoDataError.message)];
+        resultColumnContentsLines = [Colorize.red(getRepoDataError.message)];
       } else if (data) {
         resultColumnContentsLines = [
-          printCheckedOutBranchesInGreen ? Colors.green(data.checkedOutBranch) : data.checkedOutBranch
+          printCheckedOutBranchesInGreen ? Colorize.green(data.checkedOutBranch) : data.checkedOutBranch
         ];
         if (data.otherBranches) {
           for (const otherBranch of data.otherBranches) {

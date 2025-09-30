@@ -13,11 +13,11 @@ import { ILSBranchActionBaseOptions, LSBranchActionBase } from './LSBranchAction
 export const ADD_ACTION_NAME: string = 'add';
 
 export class AddAction extends LSBranchActionBase {
-  private _pathParameter!: CommandLineStringParameter;
-  private _aliasParameter!: CommandLineStringParameter;
-  private _noValidate!: CommandLineFlagParameter;
+  private readonly _pathParameter: CommandLineStringParameter;
+  private readonly _aliasParameter: CommandLineStringParameter;
+  private readonly _noValidate: CommandLineFlagParameter;
 
-  protected _outputIsMachineReadable: boolean = false;
+  protected override readonly _outputIsMachineReadable: boolean = false;
 
   public constructor(options: ILSBranchActionBaseOptions) {
     super(options, {
@@ -25,9 +25,7 @@ export class AddAction extends LSBranchActionBase {
       summary: 'Add a repo.',
       documentation: ''
     });
-  }
 
-  public onDefineParameters(): void {
     this._pathParameter = this.defineStringParameter({
       parameterLongName: '--path',
       argumentName: 'REPO_PATH',
@@ -47,7 +45,7 @@ export class AddAction extends LSBranchActionBase {
     });
   }
 
-  protected async _executeInnerAsync(): Promise<void> {
+  protected override async _executeInnerAsync(): Promise<void> {
     const configExists: boolean = await this._config.getConfigExistsAsync();
     if (configExists) {
       const validationResult: boolean = await this._config.validateAsync(this._terminal);

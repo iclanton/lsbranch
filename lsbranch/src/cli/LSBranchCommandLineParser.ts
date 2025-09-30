@@ -2,18 +2,19 @@
 // See LICENSE in the project root for license information.
 
 import { CommandLineParser, CommandLineStringParameter } from '@rushstack/ts-command-line';
-import { Terminal, ConsoleTerminalProvider, AlreadyReportedError } from '@rushstack/node-core-library';
+import { AlreadyReportedError } from '@rushstack/node-core-library';
+import { Terminal, ConsoleTerminalProvider } from '@rushstack/terminal';
 
 import { ILSBranchActionBaseOptions } from './actions/LSBranchActionBase';
 import { LSAction } from './actions/LSAction';
 import { AddAction } from './actions/AddAction';
-import { LSBranchConfig } from '../config/LSBranchConfig';
+import { LSBRANCH_CONFIG_FILENAME, LSBranchConfig } from '../config/LSBranchConfig';
 
 export const LSBRANCH_TOOL_FILENAME: string = 'lsbranch';
 
 export class LSBranchCommandLineParser extends CommandLineParser {
-  private _terminal: Terminal;
-  private _configPathParameter!: CommandLineStringParameter;
+  private readonly _terminal: Terminal;
+  private readonly _configPathParameter: CommandLineStringParameter;
 
   public get terminal(): Terminal {
     return this._terminal;
@@ -34,21 +35,19 @@ export class LSBranchCommandLineParser extends CommandLineParser {
 
     this.addAction(new LSAction(actionOptions));
     this.addAction(new AddAction(actionOptions));
-  }
 
-  protected onDefineParameters(): void {
     this._configPathParameter = this.defineStringParameter({
       parameterLongName: '--config',
       parameterShortName: '-c',
       argumentName: 'PATH',
-      description: 'Override the config file path. Defaults to ~/.lsbranchrc.json'
+      description: `Override the config file path. Defaults to ~/${LSBRANCH_CONFIG_FILENAME}`
     });
   }
 
-  protected async onExecute(): Promise<void> {
+  protected override async onExecuteAsync(): Promise<void> {
     process.exitCode = 1;
     try {
-      await super.onExecute();
+      await super.onExecuteAsync();
       process.exitCode = 0;
     } catch (e) {
       if (!(e instanceof AlreadyReportedError)) {

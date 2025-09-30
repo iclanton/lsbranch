@@ -1,11 +1,11 @@
 // Copyright (c) Ian Clanton-Thuon. All rights reserved. Licensed under the MIT license.
 // See LICENSE in the project root for license information.
 
-import os from 'os';
-import path from 'path';
-import { IPackageJson, JsonFile, Terminal } from '@rushstack/node-core-library';
-import { default as fetch, Headers, Response } from 'node-fetch';
+import os from 'node:os';
+import path from 'node:path';
 import { default as semver, SemVer } from 'semver';
+import { IPackageJson, JsonFile } from '@rushstack/node-core-library';
+import { Terminal } from '@rushstack/terminal';
 
 import { LSBranchConfig } from '../config/LSBranchConfig';
 import { LSBRANCH_TOOL_FILENAME } from '../cli/LSBranchCommandLineParser';
