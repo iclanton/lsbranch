@@ -1,11 +1,11 @@
 // Copyright (c) Ian Clanton-Thuon. All rights reserved. Licensed under the MIT license.
 // See LICENSE in the project root for license information.
 
-import os from 'os';
-import path from 'path';
-import { IPackageJson, JsonFile, Terminal } from '@rushstack/node-core-library';
-import { default as fetch, Headers, Response } from 'node-fetch';
+import os from 'node:os';
+import path from 'node:path';
 import { default as semver, SemVer } from 'semver';
+import { IPackageJson, JsonFile } from '@rushstack/node-core-library';
+import { Terminal } from '@rushstack/terminal';
 
 import { LSBranchConfig } from '../config/LSBranchConfig';
 import { LSBRANCH_TOOL_FILENAME } from '../cli/LSBranchCommandLineParser';
@@ -17,7 +17,7 @@ interface INpmQueryResponse {
   versions: { [version: string]: unknown };
 }
 
-const TIMEOUT: number = 1000; // One second
+const TIMEOUT_MS: number = 1000; // One second
 
 export class UpgradeMessagePrinter {
   private readonly _printUpgradeMessageAsyncFunction: (terminal: Terminal) => Promise<void>;
@@ -73,7 +73,7 @@ export class UpgradeMessagePrinter {
         Accept: 'application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*'
       });
 
-      const response: Response = await fetch(queryUrl, { headers, timeout: TIMEOUT });
+      const response: Response = await fetch(queryUrl, { headers, signal: AbortSignal.timeout(TIMEOUT_MS) });
       const responseJson: INpmQueryResponse = (await response.json()) as INpmQueryResponse;
       let latestVersion: SemVer | null;
       if (responseJson['dist-tags'] && responseJson['dist-tags'].latest) {

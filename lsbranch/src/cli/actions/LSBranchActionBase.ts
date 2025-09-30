@@ -1,7 +1,7 @@
 // Copyright (c) Ian Clanton-Thuon. All rights reserved. Licensed under the MIT license.
 // See LICENSE in the project root for license information.
 
-import { Terminal } from '@rushstack/node-core-library';
+import { Terminal } from '@rushstack/terminal';
 import { CommandLineAction, ICommandLineActionOptions } from '@rushstack/ts-command-line';
 
 import { LSBranchConfig } from '../../config/LSBranchConfig';
@@ -24,7 +24,7 @@ export abstract class LSBranchActionBase extends CommandLineAction {
     this._config = options.config;
   }
 
-  protected async onExecute(): Promise<void> {
+  protected override async onExecuteAsync(): Promise<void> {
     if (this._outputIsMachineReadable) {
       await this._executeInnerAsync();
     } else {

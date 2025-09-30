@@ -1,10 +1,11 @@
 // Copyright (c) Ian Clanton-Thuon. All rights reserved. Licensed under the MIT license.
 // See LICENSE in the project root for license information.
 
-import { FileSystem, JsonFile, JsonSchema, Terminal } from '@rushstack/node-core-library';
+import { FileSystem, JsonFile, JsonSchema } from '@rushstack/node-core-library';
+import { Terminal } from '@rushstack/terminal';
 import path from 'path';
 
-const LSBRANCH_CONFIG_FILENAME: string = '.lsbranchrc.json';
+export const LSBRANCH_CONFIG_FILENAME: string = '.lsbranchrc.json';
 
 export interface ILSBranchConfigRepo {
   path: string;

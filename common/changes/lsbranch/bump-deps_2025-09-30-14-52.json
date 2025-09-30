@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "lsbranch",
+      "comment": "Bump dependencies.",
+      "type": "patch"
+    }
+  ],
+  "packageName": "lsbranch"
+}

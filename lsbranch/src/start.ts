@@ -5,7 +5,7 @@ import { LSBranchCommandLineParser } from './cli/LSBranchCommandLineParser';
 
 const parser: LSBranchCommandLineParser = new LSBranchCommandLineParser();
 
-parser.execute().catch((error: Error) => {
+parser.executeAsync().catch((error: Error) => {
   parser.terminal.writeErrorLine(error.toString());
   process.exit(1);
 });
