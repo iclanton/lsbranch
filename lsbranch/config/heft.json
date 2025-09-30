@@ -1,0 +1,23 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/heft/v0/heft.schema.json",
+
+  "extends": "@rushstack/heft-node-rig/profiles/default/config/heft.json",
+
+  "phasesByName": {
+    "build": {
+      "cleanFiles": [{ "includeGlobs": ["temp/schema-ts"] }],
+
+      "tasksByName": {
+        "json-schema-typings": {
+          "taskPlugin": {
+            "pluginPackage": "@rushstack/heft-json-schema-typings-plugin",
+            "pluginName": "json-schema-typings-plugin",
+            "options": {
+              "generatedTsFolders": ["temp/schema-ts", "lib"]
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -27,16 +27,17 @@
   ],
   "devDependencies": {
     "@rushstack/eslint-config": "4.4.0",
-    "@rushstack/heft": "0.74.5",
+    "@rushstack/heft-json-schema-typings-plugin": "~0.1.5",
     "@rushstack/heft-node-rig": "2.9.6",
+    "@rushstack/heft": "0.74.5",
     "@types/heft-jest": "1.0.2",
     "@types/node": "~22.18.7",
     "@types/semver": "^7.7.0"
   },
   "dependencies": {
     "@rushstack/node-core-library": "5.14.0",
+    "@rushstack/terminal": "~0.16.0",
     "@rushstack/ts-command-line": "5.0.3",
-    "semver": "^7.7.2",
-    "@rushstack/terminal": "~0.16.0"
+    "semver": "^7.7.2"
   }
 }

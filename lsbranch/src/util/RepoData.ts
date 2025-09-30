@@ -7,7 +7,7 @@ import path from 'node:path';
 
 import { Executable, FileSystem } from '@rushstack/node-core-library';
 
-import { ILSBranchConfigRepo } from '../config/LSBranchConfig';
+import { LSBranchConfigurationSchemaRepo } from '../config/LSBranchConfig';
 
 export interface IRepoData {
   checkedOutBranch: string;
@@ -15,7 +15,7 @@ export interface IRepoData {
 }
 
 export interface IGetRepoDataResult {
-  repo: ILSBranchConfigRepo;
+  repo: LSBranchConfigurationSchemaRepo;
 }
 
 export interface IGetRepoDataErrorResult extends IGetRepoDataResult {
@@ -27,7 +27,7 @@ export interface IGetRepoDataSuccessResult extends IGetRepoDataResult {
 }
 
 export async function getRepoDataAsync(
-  repo: ILSBranchConfigRepo,
+  repo: LSBranchConfigurationSchemaRepo,
   getAllBranches: boolean
 ): Promise<IGetRepoDataErrorResult | IGetRepoDataSuccessResult> {
   if (getAllBranches) {
