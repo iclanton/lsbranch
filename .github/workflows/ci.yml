@@ -4,31 +4,24 @@ on:
     branches: ['main']
   pull_request:
     branches: ['main']
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
 jobs:
   build:
-    name: 'CI'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 2
-
       - name: Git config user
-        run: |
-          git config --local user.name "Rushbot"
-          git config --local user.email "rushbot@users.noreply.github.com"
-
+        uses: snow-actions/git-config-user@v1.0.0
+        with:
+          name: Rushbot
+          email: rushbot@users.noreply.github.com
       - uses: actions/setup-node@v3
         with:
           node-version: 22
-
       - name: Verify Change Logs
         run: node common/scripts/install-run-rush.js change --verify
-
       - name: Rush Install
         run: node common/scripts/install-run-rush.js install
-
-      - name: Rush retest
-        run: node common/scripts/install-run-rush.js retest --verbose --production
+      - name: Rush rebuild
+        run: node common/scripts/install-run-rush.js rebuild --verbose --production
