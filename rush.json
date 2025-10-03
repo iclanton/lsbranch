@@ -16,7 +16,7 @@
    * path segment in the "$schema" field for all your Rush config files.  This will ensure
    * correct error-underlining and tab-completion for editors such as VS Code.
    */
-  "rushVersion": "5.158.1",
+  "rushVersion": "5.159.0",
 
   /**
    * The next field selects which package manager should be installed and determines its version.
@@ -163,15 +163,13 @@
      * IMPORTANT: Because these are regular expressions encoded as JSON string literals,
      * RegExp escapes need two backslashes, and ordinary periods should be "\\.".
      */
-    "allowedEmailRegExps": [
-      "[^@]+@users\\.noreply\\.github\\.com",
-    ],
+    "allowedEmailRegExps": ["[^@]+@users\\.noreply\\.github\\.com"],
     /**
      * When Rush reports that the address is malformed, the notice can include an example
      * of a recommended email.  Make sure it conforms to one of the allowedEmailRegExps
      * expressions.
      */
-    "sampleEmail": "example@users.noreply.github.com",
+    "sampleEmail": "example@users.noreply.github.com"
     /**
      * The commit message to use when committing changes during 'rush publish'.
      *
