@@ -20,10 +20,10 @@ interface INpmQueryResponse {
 const TIMEOUT_MS: number = 1000; // One second
 
 export class UpgradeMessagePrinter {
-  private readonly _printUpgradeMessageAsyncFunction: (terminal: Terminal) => Promise<void>;
+  readonly #printUpgradeMessageAsyncFunction: (terminal: Terminal) => Promise<void>;
 
   private constructor(printUpgradeMessageAsyncFunction: (terminal: Terminal) => Promise<void>) {
-    this._printUpgradeMessageAsyncFunction = printUpgradeMessageAsyncFunction;
+    this.#printUpgradeMessageAsyncFunction = printUpgradeMessageAsyncFunction;
   }
 
   public static async initializeAsync(config: LSBranchConfig): Promise<UpgradeMessagePrinter> {
@@ -39,7 +39,7 @@ export class UpgradeMessagePrinter {
         path.resolve(__dirname, '..', '..', 'package.json')
       );
 
-      const latestVersion: SemVer | undefined = await UpgradeMessagePrinter._getLatestPublishedVersionAsync(
+      const latestVersion: SemVer | undefined = await UpgradeMessagePrinter.#getLatestPublishedVersionAsync(
         packageJson
       );
       if (latestVersion !== undefined) {
@@ -62,7 +62,7 @@ export class UpgradeMessagePrinter {
     return new UpgradeMessagePrinter(printUpgradeMessageAsyncFunction);
   }
 
-  private static async _getLatestPublishedVersionAsync(
+  static async #getLatestPublishedVersionAsync(
     thisPackageJson: IPackageJson
   ): Promise<SemVer | undefined> {
     try {
@@ -96,6 +96,6 @@ export class UpgradeMessagePrinter {
   }
 
   public async printUpgradeMessageAsync(terminal: Terminal): Promise<void> {
-    await this._printUpgradeMessageAsyncFunction(terminal);
+    await this.#printUpgradeMessageAsyncFunction(terminal);
   }
 }

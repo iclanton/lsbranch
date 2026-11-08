@@ -17,11 +17,11 @@ import { ADD_ACTION_NAME } from './AddAction';
 import { LSBRANCH_TOOL_FILENAME } from '../LSBranchCommandLineParser';
 
 export class LSAction extends LSBranchActionBase {
-  private readonly _jsonFlag: CommandLineFlagParameter;
-  private readonly _allFlag: CommandLineFlagParameter;
+  readonly #jsonFlag: CommandLineFlagParameter;
+  readonly #allFlag: CommandLineFlagParameter;
 
   protected get _outputIsMachineReadable(): boolean {
-    return this._jsonFlag.value;
+    return this.#jsonFlag.value;
   }
 
   public constructor(options: ILSBranchActionBaseOptions) {
@@ -31,12 +31,12 @@ export class LSAction extends LSBranchActionBase {
       documentation: ''
     });
 
-    this._jsonFlag = this.defineFlagParameter({
+    this.#jsonFlag = this.defineFlagParameter({
       parameterLongName: '--json',
       description: 'If specified, present data in JSON format.'
     });
 
-    this._allFlag = this.defineFlagParameter({
+    this.#allFlag = this.defineFlagParameter({
       parameterLongName: '--all',
       parameterShortName: '-a',
       description: 'If specified, display all local branches.'
@@ -64,19 +64,19 @@ export class LSAction extends LSBranchActionBase {
     }
 
     const repos: LSBranchConfigurationSchemaRepo[] = await this._config.getConfigReposAsync();
-    const getAllBranches: boolean = this._allFlag.value;
+    const getAllBranches: boolean = this.#allFlag.value;
     const reposData: IGetRepoDataResult[] = await Promise.all(
       repos.map((repo) => getRepoDataAsync(repo, getAllBranches))
     );
 
-    if (this._jsonFlag.value) {
+    if (this.#jsonFlag.value) {
       this._terminal.writeLine(JSON.stringify(reposData));
     } else {
-      this._printDataAsTable(reposData, getAllBranches);
+      this.#printDataAsTable(reposData, getAllBranches);
     }
   }
 
-  private _printDataAsTable(reposData: IGetRepoDataResult[], printCheckedOutBranchesInGreen: boolean): void {
+  #printDataAsTable(reposData: IGetRepoDataResult[], printCheckedOutBranchesInGreen: boolean): void {
     let nameColumnLongestElementLength: number = 0;
     const rows: [string, string[]][] = [];
     for (const repoData of reposData) {

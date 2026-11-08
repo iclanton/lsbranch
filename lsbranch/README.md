@@ -31,3 +31,9 @@ Repo 2                feature/branch
 ```
 
 Thats it!
+
+## Development
+
+From the repository root, run `rush install`, then `rush build`. Run `rush test` to build and run tests.
+
+When upgrading `@rushstack/heft-node-rig`, keep the explicit `typescript` dev dependency aligned with the rig's TypeScript dependency range. Heft shares its compiler program with ESLint, so the compiler and ESLint's parser must resolve the same TypeScript version.

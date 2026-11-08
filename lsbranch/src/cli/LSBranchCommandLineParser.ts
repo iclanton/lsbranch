@@ -13,11 +13,11 @@ import { LSBRANCH_CONFIG_FILENAME, LSBranchConfig } from '../config/LSBranchConf
 export const LSBRANCH_TOOL_FILENAME: string = 'lsbranch';
 
 export class LSBranchCommandLineParser extends CommandLineParser {
-  private readonly _terminal: Terminal;
-  private readonly _configPathParameter: CommandLineStringParameter;
+  readonly #terminal: Terminal;
+  readonly #configPathParameter: CommandLineStringParameter;
 
   public get terminal(): Terminal {
-    return this._terminal;
+    return this.#terminal;
   }
 
   public constructor() {
@@ -26,17 +26,17 @@ export class LSBranchCommandLineParser extends CommandLineParser {
       toolDescription: 'LSBranch is a simple tool for listing the active branches in git clones.'
     });
 
-    this._terminal = new Terminal(new ConsoleTerminalProvider());
+    this.#terminal = new Terminal(new ConsoleTerminalProvider());
 
     const actionOptions: ILSBranchActionBaseOptions = {
       terminal: this.terminal,
-      config: new LSBranchConfig(() => this._configPathParameter.value)
+      config: new LSBranchConfig(() => this.#configPathParameter.value)
     };
 
     this.addAction(new LSAction(actionOptions));
     this.addAction(new AddAction(actionOptions));
 
-    this._configPathParameter = this.defineStringParameter({
+    this.#configPathParameter = this.defineStringParameter({
       parameterLongName: '--config',
       parameterShortName: '-c',
       argumentName: 'PATH',
