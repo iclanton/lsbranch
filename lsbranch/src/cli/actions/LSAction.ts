@@ -1,8 +1,8 @@
 // Copyright (c) Ian Clanton-Thuon. All rights reserved. Licensed under the MIT license.
 // See LICENSE in the project root for license information.
 
-import { AlreadyReportedError } from '@rushstack/node-core-library';
-import { Colorize } from '@rushstack/terminal';
+import { AlreadyReportedError, Async } from '@rushstack/node-core-library';
+import { Colorize, TerminalTable } from '@rushstack/terminal';
 import { CommandLineFlagParameter } from '@rushstack/ts-command-line';
 
 import { LSBranchConfigurationSchemaRepo } from '../../config/LSBranchConfig';
@@ -10,6 +10,8 @@ import { getRepoDataAsync, IGetRepoDataResult } from '../../util/RepoData';
 import { ILSBranchActionBaseOptions, LSBranchActionBase } from './LSBranchActionBase';
 import { ADD_ACTION_NAME } from './AddAction';
 import { LSBRANCH_TOOL_FILENAME } from '../LSBranchCommandLineParser';
+
+const REPO_LOOKUP_CONCURRENCY: number = 15;
 
 export class LSAction extends LSBranchActionBase {
   readonly #jsonFlag: CommandLineFlagParameter;
@@ -61,8 +63,10 @@ export class LSAction extends LSBranchActionBase {
 
     const repos: LSBranchConfigurationSchemaRepo[] = await config.getConfigReposAsync();
     const getAllBranches: boolean = this.#allFlag.value;
-    const reposData: IGetRepoDataResult[] = await Promise.all(
-      repos.map((repo) => getRepoDataAsync(repo, getAllBranches))
+    const reposData: IGetRepoDataResult[] = await Async.mapAsync(
+      repos,
+      (repo) => getRepoDataAsync(repo, getAllBranches),
+      { concurrency: REPO_LOOKUP_CONCURRENCY }
     );
 
     if (this.#jsonFlag.value) {
@@ -74,8 +78,7 @@ export class LSAction extends LSBranchActionBase {
 
   #printDataAsTable(reposData: IGetRepoDataResult[], printCheckedOutBranchesInGreen: boolean): void {
     const { _terminal: terminal } = this;
-    let nameColumnLongestElementLength: number = 0;
-    const rows: [string, string[]][] = [];
+    const table: TerminalTable = new TerminalTable({ borderless: true });
     for (const repoData of reposData) {
       const { repo } = repoData;
       const { alias, path } = repo;
@@ -97,25 +100,14 @@ export class LSAction extends LSBranchActionBase {
       }
 
       const nameColumnLine: string = alias || path;
-      rows.push([nameColumnLine, resultColumnContentsLines]);
-
-      const nameColumnContentsLength: number = nameColumnLine.length;
-      nameColumnLongestElementLength = Math.max(nameColumnContentsLength, nameColumnLongestElementLength);
+      for (let i = 0; i < resultColumnContentsLines.length; i++) {
+        table.push([i === 0 ? nameColumnLine : '', resultColumnContentsLines[i]]);
+      }
     }
 
-    const nameColumnWidth: number = nameColumnLongestElementLength + 2;
-    const continuationPadding: string = ' '.repeat(nameColumnWidth);
-
-    for (const [nameColumnContents, dataColumnContents] of rows) {
-      for (let i = 0; i < dataColumnContents.length; i++) {
-        if (i === 0) {
-          const nameColumnPaddingLength: number = nameColumnWidth - nameColumnContents.length;
-          const nameColumnPadding: string = ' '.repeat(nameColumnPaddingLength);
-          terminal.writeLine(nameColumnContents, nameColumnPadding, dataColumnContents[i]);
-        } else {
-          terminal.writeLine(continuationPadding, dataColumnContents[i]);
-        }
-      }
+    for (const line of table.getLines()) {
+      // Remove cell padding at the table edges to preserve the existing flush-left layout.
+      terminal.writeLine(line.slice(1).trimEnd());
     }
   }
 }

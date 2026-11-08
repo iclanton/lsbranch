@@ -8,6 +8,14 @@ import { LSBranchConfig, LSBranchConfigurationSchemaRepo } from '../LSBranchConf
 import type { LSBranchConfigurationSchema } from '../lsbranchrc.schema.json.d.ts';
 
 describe(LSBranchConfig.name, () => {
+  let terminalProvider: StringBufferTerminalProvider;
+  let terminal: Terminal;
+
+  beforeEach(() => {
+    terminalProvider = new StringBufferTerminalProvider(true);
+    terminal = new Terminal(terminalProvider);
+  });
+
   afterEach(() => {
     jest.restoreAllMocks();
   });
@@ -43,9 +51,9 @@ describe(LSBranchConfig.name, () => {
       .mockResolvedValueOnce({ repos: [] });
     const config: LSBranchConfig = new LSBranchConfig(() => '/config.json');
 
-    await expect(
-      Promise.all([config.getConfigExistsAsync(), config.getConfigReposAsync()])
-    ).rejects.toBe(error);
+    await expect(Promise.all([config.getConfigExistsAsync(), config.getConfigReposAsync()])).rejects.toBe(
+      error
+    );
     await expect(config.getConfigExistsAsync()).resolves.toBe(true);
     expect(loadConfig).toHaveBeenCalledTimes(2);
   });
@@ -76,7 +84,6 @@ describe(LSBranchConfig.name, () => {
     jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({ repos: [repo], lastUpdateCheck: 0 });
     jest.spyOn(JsonFile, 'saveAsync').mockResolvedValue(true);
     const config: LSBranchConfig = new LSBranchConfig(() => '/config.json');
-    const terminal: Terminal = new Terminal(new StringBufferTerminalProvider());
     await config.getConfigReposAsync();
     readRepoPath.mockClear();
 
@@ -84,15 +91,43 @@ describe(LSBranchConfig.name, () => {
 
     expect(readRepoPath).not.toHaveBeenCalled();
     await expect(config.tryAddRepoAsync({ path: '/repo' }, terminal)).resolves.toBe(false);
+    expect(terminalProvider.getAllOutputAsChunks({ asLines: true })).toMatchSnapshot('terminal output');
   });
 
   it('rebuilds counters after successfully adding a repository', async () => {
     jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({ repos: [] });
     jest.spyOn(JsonFile, 'saveAsync').mockResolvedValue(true);
     const config: LSBranchConfig = new LSBranchConfig(() => '/config.json');
-    const terminal: Terminal = new Terminal(new StringBufferTerminalProvider());
 
     await expect(config.tryAddRepoAsync({ path: '/repo' }, terminal)).resolves.toBe(true);
     await expect(config.tryAddRepoAsync({ path: '/repo' }, terminal)).resolves.toBe(false);
+    expect(terminalProvider.getAllOutputAsChunks({ asLines: true })).toMatchSnapshot('terminal output');
+  });
+
+  it('reports duplicate paths and aliases during validation', async () => {
+    jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({
+      repos: [
+        { path: '/repo', alias: 'Shared' },
+        { path: '/repo', alias: 'Shared' }
+      ]
+    });
+    const config: LSBranchConfig = new LSBranchConfig(() => '/config.json');
+
+    await expect(config.validateAsync(terminal)).resolves.toBe(false);
+
+    expect(terminalProvider.getAllOutputAsChunks({ asLines: true })).toMatchSnapshot('terminal output');
+  });
+
+  it('reports all conflicts when adding a repository', async () => {
+    jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({
+      repos: [{ path: '/repo', alias: 'Shared' }]
+    });
+    const saveConfig: jest.SpyInstance = jest.spyOn(JsonFile, 'saveAsync').mockResolvedValue(true);
+    const config: LSBranchConfig = new LSBranchConfig(() => '/config.json');
+
+    await expect(config.tryAddRepoAsync({ path: '/repo', alias: 'Shared' }, terminal)).resolves.toBe(false);
+
+    expect(saveConfig).not.toHaveBeenCalled();
+    expect(terminalProvider.getAllOutputAsChunks({ asLines: true })).toMatchSnapshot('terminal output');
   });
 });
