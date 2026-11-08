@@ -1,5 +1,11 @@
 // Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
+exports[`LSBranchCommandLineParser accepts listing flags without an explicit action: terminal output 1`] = `
+Array [
+  "[    log] [{\\"repo\\":{\\"path\\":\\"/repo\\",\\"alias\\":\\"Repo\\"},\\"data\\":{\\"checkedOutBranch\\":\\"main\\"}}][n]",
+]
+`;
+
 exports[`LSBranchCommandLineParser adds a repository while loading the configuration only once: terminal output 1`] = `Array []`;
 
 exports[`LSBranchCommandLineParser aligns borderless table columns using the visible width of colored aliases: terminal output 1`] = `

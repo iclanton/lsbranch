@@ -64,6 +64,61 @@ describe(LSBranchCommandLineParser.name, () => {
     }
   });
 
+  it.each([
+    [],
+    ['--config', 'fixture-config.json'],
+    ['-c', 'fixture-config.json'],
+    ['--config=fixture-config.json'],
+    ['-cfixture-config.json']
+  ])('defaults to listing for arguments %j', async (...args) => {
+    jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({
+      repos: [{ path: '/repo', alias: 'Repo' }],
+      lastUpdateCheck: Date.now()
+    });
+    jest.spyOn(FileSystem, 'readFileAsync').mockResolvedValue('ref: refs/heads/main\n');
+    const originalArgs: string[] = [...args];
+
+    await parser.executeAsync(args);
+
+    expect(process.exitCode).toBe(0);
+    expect(parser.selectedAction?.actionName).toBe('ls');
+    expect(getTerminalOutput()).toEqual(['[    log] Repo  main[n]']);
+    expect(args).toEqual(originalArgs);
+  });
+
+  it('accepts listing flags without an explicit action', async () => {
+    jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({
+      repos: [{ path: '/repo', alias: 'Repo' }],
+      lastUpdateCheck: Date.now()
+    });
+    jest.spyOn(FileSystem, 'readFileAsync').mockResolvedValue('ref: refs/heads/main\n');
+
+    await parser.executeAsync(['--config', 'fixture-config.json', '--json']);
+
+    expect(process.exitCode).toBe(0);
+    expect(parser.selectedAction?.actionName).toBe('ls');
+    expect(getTerminalOutput()).toMatchSnapshot('terminal output');
+  });
+
+  it('preserves global help without executing an action', async () => {
+    const printHelp: jest.SpyInstance = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+    await parser.executeWithoutErrorHandlingAsync(['--help']);
+
+    expect(parser.selectedAction).toBeUndefined();
+    expect(printHelp).toHaveBeenCalledWith(expect.stringContaining('usage: lsbranch'));
+    expect(getTerminalOutput()).toEqual([]);
+  });
+
+  it.each([['--config'], ['--config', '--json'], ['unknown-action']])(
+    'preserves invalid argument errors for %j',
+    async (...args) => {
+      jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      await expect(parser.executeWithoutErrorHandlingAsync(args)).rejects.toThrow();
+      expect(parser.selectedAction).toBeUndefined();
+    }
+  );
+
   it('lists the current branch as JSON', async () => {
     const repoPath: string = path.resolve('fixture-repo');
     const { terminal } = parser;

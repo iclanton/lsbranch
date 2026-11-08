@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "comment": "Default to listing branches when no action is specified.",
+      "type": "minor",
+      "packageName": "lsbranch"
+    }
+  ],
+  "packageName": "lsbranch"
+}

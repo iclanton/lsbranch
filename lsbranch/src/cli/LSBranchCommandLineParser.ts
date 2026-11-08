@@ -44,6 +44,38 @@ export class LSBranchCommandLineParser extends CommandLineParser {
     });
   }
 
+  public override async executeWithoutErrorHandlingAsync(args?: string[]): Promise<void> {
+    const argv: string[] = args ?? process.argv.slice(2);
+    let actionIndex: number = 0;
+    while (actionIndex < argv.length) {
+      const argument: string = argv[actionIndex];
+      if (argument === '--config' || argument === '-c') {
+        const value: string | undefined = argv[actionIndex + 1];
+        if (value === undefined || value.startsWith('-')) {
+          return super.executeWithoutErrorHandlingAsync(argv);
+        }
+
+        actionIndex += 2;
+      } else if (argument.startsWith('--config=') || (argument.startsWith('-c') && argument.length > 2)) {
+        actionIndex++;
+      } else {
+        break;
+      }
+    }
+
+    const argument: string | undefined = argv[actionIndex];
+    if (argument === undefined || (argument.startsWith('-') && argument !== '-h' && argument !== '--help')) {
+      // ts-command-line has no default action; insert it after the global options.
+      return super.executeWithoutErrorHandlingAsync([
+        ...argv.slice(0, actionIndex),
+        'ls',
+        ...argv.slice(actionIndex)
+      ]);
+    }
+
+    return super.executeWithoutErrorHandlingAsync(argv);
+  }
+
   protected override async onExecuteAsync(): Promise<void> {
     process.exitCode = 1;
     try {

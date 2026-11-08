@@ -21,7 +21,7 @@ Then, run `lsbranch add --path /path/to/your-repo [--alias repoAlias]` to config
 
 ## Usage
 
-Run `lsbranch ls` to see the configured repos' currently checked out branches
+Run `lsbranch` (or `lsbranch ls`) to see the configured repos' currently checked out branches. Listing flags can also be used without `ls`, for example `lsbranch --json`. Global options such as `--config PATH` precede the action or listing flags; `lsbranch --help` still shows the global help.
 
 ```BASH
 > lsbranch ls
