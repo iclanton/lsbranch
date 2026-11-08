@@ -1,0 +1,11 @@
+{
+  "changes": [
+    {
+      "comment": "Require non-empty, absolute repository paths in configuration. Paths passed to `lsbranch add` are resolved automatically.",
+      "type": "patch",
+      "packageName": "lsbranch"
+    }
+  ],
+  "packageName": "lsbranch",
+  "email": "iclanton@users.noreply.github.com"
+}

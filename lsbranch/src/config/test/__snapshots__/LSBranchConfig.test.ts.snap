@@ -1,0 +1,27 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`LSBranchConfig does not rebuild repository counters for timestamp-only updates: terminal output 1`] = `
+Array [
+  "[  error] [red]Repo path \\"/repo\\" already exists[default][n]",
+]
+`;
+
+exports[`LSBranchConfig rebuilds counters after successfully adding a repository: terminal output 1`] = `
+Array [
+  "[  error] [red]Repo path \\"/repo\\" already exists[default][n]",
+]
+`;
+
+exports[`LSBranchConfig reports all conflicts when adding a repository: terminal output 1`] = `
+Array [
+  "[  error] [red]Repo alias \\"Shared\\" already exists[default][n]",
+  "[  error] [red]Repo path \\"/repo\\" already exists[default][n]",
+]
+`;
+
+exports[`LSBranchConfig reports duplicate paths and aliases during validation: terminal output 1`] = `
+Array [
+  "[  error] [red]Repo alias \\"Shared\\" is specified multiple times.[default][n]",
+  "[  error] [red]Repo path \\"/repo\\" is specified multiple times.[default][n]",
+]
+`;

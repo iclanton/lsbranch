@@ -1,4 +1,50 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`LSBranchCommandLineParser adds a repository while loading the configuration only once: terminal output 1`] = `Array []`;
+
+exports[`LSBranchCommandLineParser aligns borderless table columns using the visible width of colored aliases: terminal output 1`] = `
+Array [
+  "[    log] [cyan]Repo[default]    main[n]",
+  "[    log] Longer  main[n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser lists all branches and individual Git failures with aligned continuation rows: terminal output 1`] = `
+Array [
+  "[    log] Valid    [green]main[default][n]",
+  "[    log]          feature[n]",
+  "[    log] Invalid  [red]git branch failed with exit code 128: not a git repository[default][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser lists the current branch as JSON: terminal output 1`] = `
+Array [
+  "[    log] [{\\"repo\\":{\\"path\\":\\"<project>/fixture-repo\\",\\"alias\\":\\"Repo\\"},\\"data\\":{\\"checkedOutBranch\\":\\"feature/nested\\"}}][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser prints an upgrade notice from the registry latest tag: terminal output 1`] = `
+Array [
+  "[    log] [n]",
+  "[    log] An update to lsbranch is available. The latest version is 99.0.0 Run \\"npm install -g lsbranch@99.0.0\\" to update[n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser prints branch names and detached HEADs with an unaliased repository: terminal output 1`] = `
+Array [
+  "[    log] Main             main[n]",
+  "[    log] Feature          feature/nested[n]",
+  "[    log] /repos/detached  0123456789abcdef0123456789abcdef01234567[n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser prints mixed success and error results as JSON without upgrade notices: terminal output 1`] = `
+Array [
+  "[    log] [{\\"repo\\":{\\"path\\":\\"/repos/valid\\",\\"alias\\":\\"Valid\\"},\\"data\\":{\\"checkedOutBranch\\":\\"main\\",\\"otherBranches\\":[\\"feature\\",\\"other\\"]}},{\\"repo\\":{\\"path\\":\\"/repos/invalid\\",\\"alias\\":\\"Invalid\\"},\\"error\\":{}}][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser prints no table rows when no repositories are configured: terminal output 1`] = `Array []`;
 
 exports[`LSBranchCommandLineParser prints the global help 1`] = `
 "usage: lsbranch [-h] [-c PATH] <command> ...
@@ -41,4 +87,63 @@ Optional arguments:
   --json      If specified, present data in JSON format.
   -a, --all   If specified, display all local branches.
 "
+`;
+
+exports[`LSBranchCommandLineParser prints the repository table before its upgrade notice: terminal output 1`] = `
+Array [
+  "[    log] Repo  main[n]",
+  "[    log] [n]",
+  "[    log] An update to lsbranch is available. The latest version is 99.0.0 Run \\"npm install -g lsbranch@99.0.0\\" to update[n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser rejects a nonexistent repository without saving: terminal output 1`] = `
+Array [
+  "[  error] [red]Specified repo path is not valid: .git folder doesn't exist[default][n]",
+  "[  error] [red]If this is expected, provide the \\"--no-validate\\" flag[default][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser rejects configuration with a relative repository path: terminal output 1`] = `
+Array [
+  "[  error] [red]An unexpected error occurred: Error: JSON validation failed:[n]",
+  "[  error] <project>/fixture-config.json[n]",
+  "[  error] [n]",
+  "[  error] Error: #/repos/0/path[n]",
+  "[  error]        must match format \\"absolute-path\\"[default][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser rejects configuration with an empty repository path: terminal output 1`] = `
+Array [
+  "[  error] [red]An unexpected error occurred: Error: JSON validation failed:[n]",
+  "[  error] <project>/fixture-config.json[n]",
+  "[  error] [n]",
+  "[  error] Error: #/repos/0/path[n]",
+  "[  error]        must NOT have fewer than 1 characters[default][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser rejects duplicate repositories without saving: terminal output 1`] = `
+Array [
+  "[  error] [red]Repo path \\"<project>/fixture-repo\\" already exists[default][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser reports a missing configuration: terminal output 1`] = `
+Array [
+  "[  error] [red]Config file does not exist: <project>/fixture-config.json[default][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser reports unconfigured repositories at the default config path: terminal output 1`] = `
+Array [
+  "[  error] [red]No repos have been configured. Add a repo with \\"lsbranch add\\"[default][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser reports unexpected configuration failures: terminal output 1`] = `
+Array [
+  "[  error] [red]An unexpected error occurred: Error: Invalid configuration[default][n]",
+]
 `;

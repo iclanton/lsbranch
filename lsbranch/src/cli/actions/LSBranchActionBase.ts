@@ -20,19 +20,21 @@ export abstract class LSBranchActionBase extends CommandLineAction {
 
   public constructor(options: ILSBranchActionBaseOptions, actionOptions: ICommandLineActionOptions) {
     super(actionOptions);
-    this._terminal = options.terminal;
-    this._config = options.config;
+    const { terminal, config } = options;
+    this._terminal = terminal;
+    this._config = config;
   }
 
   protected override async onExecuteAsync(): Promise<void> {
+    const { _config: config, _terminal: terminal } = this;
     if (this._outputIsMachineReadable) {
       await this._executeInnerAsync();
     } else {
       const [upgradeMessagePrinter] = await Promise.all([
-        UpgradeMessagePrinter.initializeAsync(this._config),
+        UpgradeMessagePrinter.initializeAsync(config),
         this._executeInnerAsync()
       ]);
-      await upgradeMessagePrinter.printUpgradeMessageAsync(this._terminal);
+      await upgradeMessagePrinter.printUpgradeMessageAsync(terminal);
     }
   }
 

@@ -4,16 +4,20 @@
 import path from 'node:path';
 
 import { AlreadyReportedError } from '@rushstack/node-core-library';
-import { CommandLineFlagParameter, CommandLineStringParameter } from '@rushstack/ts-command-line';
+import {
+  CommandLineFlagParameter,
+  CommandLineStringParameter,
+  type IRequiredCommandLineStringParameter
+} from '@rushstack/ts-command-line';
 
 import { LSBranchConfigurationSchemaRepo } from '../../config/LSBranchConfig';
-import { getRepoDataAsync, IGetRepoDataErrorResult } from '../../util/RepoData';
+import { getRepoDataAsync, IGetRepoDataResult } from '../../util/RepoData';
 import { ILSBranchActionBaseOptions, LSBranchActionBase } from './LSBranchActionBase';
 
 export const ADD_ACTION_NAME: string = 'add';
 
 export class AddAction extends LSBranchActionBase {
-  readonly #pathParameter: CommandLineStringParameter;
+  readonly #pathParameter: IRequiredCommandLineStringParameter;
   readonly #aliasParameter: CommandLineStringParameter;
   readonly #noValidate: CommandLineFlagParameter;
 
@@ -46,34 +50,33 @@ export class AddAction extends LSBranchActionBase {
   }
 
   protected override async _executeInnerAsync(): Promise<void> {
-    const configExists: boolean = await this._config.getConfigExistsAsync();
+    const { _config: config, _terminal: terminal } = this;
+    const configExists: boolean = await config.getConfigExistsAsync();
     if (configExists) {
-      const validationResult: boolean = await this._config.validateAsync(this._terminal);
+      const validationResult: boolean = await config.validateAsync(terminal);
       if (!validationResult) {
-        this._terminal.writeErrorLine('Found config validation errors.');
+        terminal.writeErrorLine('Found config validation errors.');
         throw new AlreadyReportedError();
       }
     }
 
-    const resolvedPath: string = path.resolve(this.#pathParameter.value!);
+    const resolvedPath: string = path.resolve(this.#pathParameter.value);
     const configRepo: LSBranchConfigurationSchemaRepo = {
       path: resolvedPath,
       alias: this.#aliasParameter.value
     };
 
     if (!this.#noValidate.value) {
-      const { error: getRepoDataError } = (await getRepoDataAsync(
-        configRepo,
-        false
-      )) as IGetRepoDataErrorResult;
-      if (getRepoDataError) {
-        this._terminal.writeErrorLine(`Specified repo path is not valid: ${getRepoDataError.message}`);
-        this._terminal.writeErrorLine(`If this is expected, provide the "${this.#noValidate.longName}" flag`);
+      const repoData: IGetRepoDataResult = await getRepoDataAsync(configRepo, false);
+      if ('error' in repoData) {
+        const { error } = repoData;
+        terminal.writeErrorLine(`Specified repo path is not valid: ${error.message}`);
+        terminal.writeErrorLine(`If this is expected, provide the "${this.#noValidate.longName}" flag`);
         throw new AlreadyReportedError();
       }
     }
 
-    const addSuccessful: boolean = await this._config.tryAddRepoAsync(configRepo, this._terminal);
+    const addSuccessful: boolean = await config.tryAddRepoAsync(configRepo, terminal);
     if (!addSuccessful) {
       throw new AlreadyReportedError();
     }

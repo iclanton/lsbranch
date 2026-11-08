@@ -21,7 +21,9 @@
         "properties": {
           "path": {
             "type": "string",
-            "description": "The filesystem path to the root of the repo clone."
+            "minLength": 1,
+            "format": "absolute-path",
+            "description": "The absolute filesystem path to the root of the repo clone."
           },
           "alias": {
             "type": "string",

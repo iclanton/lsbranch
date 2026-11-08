@@ -2,22 +2,56 @@
 // See LICENSE in the project root for license information.
 
 import os from 'node:os';
-import path from 'node:path';
 import { default as semver, SemVer } from 'semver';
-import { IPackageJson, JsonFile } from '@rushstack/node-core-library';
+import { IPackageJson } from '@rushstack/node-core-library';
 import { Terminal } from '@rushstack/terminal';
 
 import { LSBranchConfig } from '../config/LSBranchConfig';
 import { LSBRANCH_TOOL_FILENAME } from '../cli/LSBranchCommandLineParser';
+import packageJson from '../../package.json';
 
 interface INpmQueryResponse {
   'dist-tags'?: {
-    latest: 'string';
+    latest: string;
   };
   versions: { [version: string]: unknown };
 }
 
 const TIMEOUT_MS: number = 1000; // One second
+
+async function getLatestPublishedVersionAsync(thisPackageJson: IPackageJson): Promise<SemVer | undefined> {
+  const { name } = thisPackageJson;
+  try {
+    const queryUrl: string = `https://registry.npmjs.org/${name}`;
+    const userAgent: string = `npm/? node/${process.version} ${os.platform()} ${os.arch()}`;
+    const headers: Headers = new Headers({
+      'User-Agent': userAgent,
+      Accept: 'application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*'
+    });
+
+    const response: Response = await fetch(queryUrl, { headers, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const responseJson: INpmQueryResponse = (await response.json()) as INpmQueryResponse;
+    const { 'dist-tags': distTags, versions } = responseJson;
+    const latest: string | undefined = distTags?.latest;
+    let latestVersion: SemVer;
+    if (latest) {
+      latestVersion = new SemVer(latest);
+    } else {
+      const allVersions: string[] = Object.keys(versions);
+      latestVersion = new SemVer('0.0.0');
+      for (const version of allVersions) {
+        const parsedVersion: SemVer | null = semver.parse(version);
+        if (parsedVersion && semver.gt(parsedVersion, latestVersion)) {
+          latestVersion = parsedVersion;
+        }
+      }
+    }
+
+    return latestVersion;
+  } catch (e) {
+    return undefined;
+  }
+}
 
 export class UpgradeMessagePrinter {
   readonly #printUpgradeMessageAsyncFunction: (terminal: Terminal) => Promise<void>;
@@ -35,24 +69,19 @@ export class UpgradeMessagePrinter {
 
     const shouldCheckForUpdates: boolean = await config.getShouldCheckForUpdatesAsync();
     if (shouldCheckForUpdates) {
-      const packageJson: IPackageJson = await JsonFile.loadAsync(
-        path.resolve(__dirname, '..', '..', 'package.json')
-      );
-
-      const latestVersion: SemVer | undefined = await UpgradeMessagePrinter.#getLatestPublishedVersionAsync(
-        packageJson
-      );
+      const { name, version } = packageJson;
+      const latestVersion: SemVer | undefined = await getLatestPublishedVersionAsync(packageJson);
       if (latestVersion !== undefined) {
         printUpgradeMessageAsyncFunction = async (terminal: Terminal) => {
           await config.setLastUpdateCheckAsync();
 
-          const currentVersion: SemVer = new SemVer(packageJson.version);
+          const currentVersion: SemVer = new SemVer(version);
           if (semver.gt(latestVersion, currentVersion)) {
             const latestVersionString: string = latestVersion.format();
             terminal.writeLine();
             terminal.writeLine(
               `An update to ${LSBRANCH_TOOL_FILENAME} is available. The latest version is ${latestVersionString} ` +
-                `Run "npm install -g ${packageJson.name}@${latestVersionString}" to update`
+                `Run "npm install -g ${name}@${latestVersionString}" to update`
             );
           }
         };
@@ -60,39 +89,6 @@ export class UpgradeMessagePrinter {
     }
 
     return new UpgradeMessagePrinter(printUpgradeMessageAsyncFunction);
-  }
-
-  static async #getLatestPublishedVersionAsync(
-    thisPackageJson: IPackageJson
-  ): Promise<SemVer | undefined> {
-    try {
-      const queryUrl: string = `https://registry.npmjs.org/${thisPackageJson.name}`;
-      const userAgent: string = `npm/? node/${process.version} ${os.platform()} ${os.arch()}`;
-      const headers: Headers = new Headers({
-        'User-Agent': userAgent,
-        Accept: 'application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*'
-      });
-
-      const response: Response = await fetch(queryUrl, { headers, signal: AbortSignal.timeout(TIMEOUT_MS) });
-      const responseJson: INpmQueryResponse = (await response.json()) as INpmQueryResponse;
-      let latestVersion: SemVer | null;
-      if (responseJson['dist-tags'] && responseJson['dist-tags'].latest) {
-        latestVersion = new SemVer(responseJson['dist-tags'].latest);
-      } else {
-        const allVersions: string[] = Object.keys(responseJson.versions);
-        latestVersion = new SemVer('0.0.0')!;
-        for (const version of allVersions) {
-          const parsedVersion: SemVer | null = semver.parse(version);
-          if (parsedVersion && semver.gt(parsedVersion, latestVersion)) {
-            latestVersion = parsedVersion;
-          }
-        }
-      }
-
-      return latestVersion || undefined;
-    } catch (e) {
-      return undefined;
-    }
   }
 
   public async printUpgradeMessageAsync(terminal: Terminal): Promise<void> {
