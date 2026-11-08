@@ -61,6 +61,64 @@ describe(LSBranchCommandLineParser.name, () => {
     expect(helpText).toMatchSnapshot();
   });
 
+  it.each([false, true])('finds checked-out and non-checked-out local branches with JSON=%s', async (json) => {
+    const repos: LSBranchConfigurationSchemaRepo[] = [
+      { path: '/repos/one', alias: 'One' },
+      { path: '/repos/two', alias: 'Two' },
+      { path: '/repos/three', alias: 'Three' },
+      { path: '/repos/bad', alias: 'Bad' }
+    ];
+    jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({ repos, lastUpdateCheck: Date.now() });
+    const lookup: jest.SpyInstance = jest.spyOn(RepoData, 'getRepoDataAsync')
+      .mockResolvedValueOnce({ repo: repos[0], data: { checkedOutBranch: 'main', hasLocalBranch: true } })
+      .mockResolvedValueOnce({ repo: repos[1], data: { checkedOutBranch: 'feature', hasLocalBranch: true } })
+      .mockResolvedValueOnce({ repo: repos[2], data: { checkedOutBranch: 'topic', hasLocalBranch: false } })
+      .mockResolvedValueOnce({ repo: repos[3], error: new Error('Unreadable repository') });
+    const args: string[] = ['find', '--branch', 'main'];
+    if (json) {
+      args.push('--json');
+    }
+
+    await parser.executeAsync(args);
+
+    expect(process.exitCode).toBe(0);
+    expect(lookup).toHaveBeenNthCalledWith(1, repos[0], false, 'main');
+    expect(getTerminalOutput()).toMatchSnapshot('terminal output');
+  });
+
+  it.each([false, true])('reports no branch matches with JSON=%s', async (json) => {
+    const repo: LSBranchConfigurationSchemaRepo = { path: '/repo', alias: 'Repo' };
+    jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({ repos: [repo], lastUpdateCheck: Date.now() });
+    jest.spyOn(RepoData, 'getRepoDataAsync').mockResolvedValue({
+      repo, data: { checkedOutBranch: 'main', hasLocalBranch: false }
+    });
+    const args: string[] = ['find', '--branch', 'absent'];
+    if (json) {
+      args.push('--json');
+    }
+
+    await parser.executeAsync(args);
+
+    expect(process.exitCode).toBe(0);
+    expect(getTerminalOutput()).toMatchSnapshot('terminal output');
+  });
+
+  it.each(['../main', 'bad branch', 'name.lock', 'main?'])('rejects invalid local branch name %j', async (branch) => {
+    const lookup: jest.SpyInstance = jest.spyOn(RepoData, 'getRepoDataAsync');
+
+    await parser.executeAsync(['find', '--branch', branch, '--json']);
+
+    expect(process.exitCode).toBe(1);
+    expect(lookup).not.toHaveBeenCalled();
+    expect(getTerminalOutput()).toMatchSnapshot('terminal output');
+  });
+
+  it('requires a branch name for find', async () => {
+    jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    await expect(parser.executeWithoutErrorHandlingAsync(['find', '--json'])).rejects.toThrow();
+  });
+
   it('prints the help for each action', () => {
     for (const action of parser.actions) {
       const helpText: string = AnsiEscape.formatForTests(action.renderHelpText());

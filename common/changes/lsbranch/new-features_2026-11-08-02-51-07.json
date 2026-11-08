@@ -9,6 +9,11 @@
       "comment": "Read local branches from Git metadata without subprocesses and add --other to list branches not checked out in each clone.",
       "type": "minor",
       "packageName": "lsbranch"
+    },
+    {
+      "comment": "Add find --branch to locate clones containing an exact local branch, including branches that are not checked out.",
+      "type": "minor",
+      "packageName": "lsbranch"
     }
   ],
   "packageName": "lsbranch"

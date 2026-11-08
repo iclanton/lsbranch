@@ -147,6 +147,31 @@ describe(getRepoDataAsync.name, () => {
     expect(looseResult).toHaveProperty('error');
   });
 
+  it('finds loose and packed branches but not remote-tracking branches', async () => {
+    await writeFileAsync('repo/.git/refs/heads/main', `${COMMIT}\n`);
+    await writeFileAsync('repo/.git/packed-refs', [
+      `${COMMIT} refs/heads/feature/nested`,
+      `${COMMIT} refs/remotes/origin/remote-only`,
+      ''
+    ].join('\n'));
+
+    await expect(getRepoDataAsync(repo, false, 'main')).resolves.toEqual({
+      repo, data: { checkedOutBranch: 'main', hasLocalBranch: true }
+    });
+    await expect(getRepoDataAsync(repo, false, 'feature/nested')).resolves.toEqual({
+      repo, data: { checkedOutBranch: 'main', hasLocalBranch: true }
+    });
+    await expect(getRepoDataAsync(repo, false, 'remote-only')).resolves.toEqual({
+      repo, data: { checkedOutBranch: 'main', hasLocalBranch: false }
+    });
+  });
+
+  it('does not find an unborn HEAD name without a stored branch reference', async () => {
+    await expect(getRepoDataAsync(repo, false, 'main')).resolves.toEqual({
+      repo, data: { checkedOutBranch: 'main', hasLocalBranch: false }
+    });
+  });
+
   it('explicitly rejects unsupported reftable storage', async () => {
     await writeFileAsync('repo/.git/config', '[extensions]\n\trefStorage = reftable\n');
 

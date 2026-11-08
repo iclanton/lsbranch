@@ -2,10 +2,13 @@
 // See LICENSE in the project root for license information.
 
 import { Terminal } from '@rushstack/terminal';
+import { AlreadyReportedError, Async } from '@rushstack/node-core-library';
 import { CommandLineAction, ICommandLineActionOptions } from '@rushstack/ts-command-line';
 
-import { LSBranchConfig } from '../../config/LSBranchConfig';
+import { LSBranchConfig, LSBranchConfigurationSchemaRepo } from '../../config/LSBranchConfig';
 import { UpgradeMessagePrinter } from '../../util/UpgradeMessagePrinter';
+import { getRepoDataAsync, IGetRepoDataResult } from '../../util/RepoData';
+import { LSBRANCH_TOOL_FILENAME } from '../LSBranchCommandLineParser';
 
 export interface ILSBranchActionBaseOptions {
   terminal: Terminal;
@@ -36,6 +39,37 @@ export abstract class LSBranchActionBase extends CommandLineAction {
       ]);
       await upgradeMessagePrinter.printUpgradeMessageAsync(terminal);
     }
+  }
+
+  protected async _getConfiguredReposAsync(): Promise<LSBranchConfigurationSchemaRepo[]> {
+    const { _config: config, _terminal: terminal } = this;
+    if (!(await config.getConfigExistsAsync())) {
+      if (config.isDefaultConfigPath) {
+        terminal.writeErrorLine(`No repos have been configured. Add a repo with "${LSBRANCH_TOOL_FILENAME} add"`);
+      } else {
+        terminal.writeErrorLine(`Config file does not exist: ${config.configPath}`);
+      }
+
+      throw new AlreadyReportedError();
+    }
+
+    if (!(await config.validateAsync(terminal))) {
+      terminal.writeErrorLine('Found config validation errors.');
+      throw new AlreadyReportedError();
+    }
+
+    return config.getConfigReposAsync();
+  }
+
+  protected async _getReposDataAsync(getAllBranches: boolean, branchName?: string): Promise<IGetRepoDataResult[]> {
+    const repos: LSBranchConfigurationSchemaRepo[] = await this._getConfiguredReposAsync();
+    return Async.mapAsync(
+      repos,
+      (repo) => branchName === undefined
+        ? getRepoDataAsync(repo, getAllBranches)
+        : getRepoDataAsync(repo, getAllBranches, branchName),
+      { concurrency: 15 }
+    );
   }
 
   protected abstract _executeInnerAsync(): Promise<void>;

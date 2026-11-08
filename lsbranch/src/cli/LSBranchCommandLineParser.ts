@@ -8,6 +8,7 @@ import { Terminal, ConsoleTerminalProvider } from '@rushstack/terminal';
 import { ILSBranchActionBaseOptions } from './actions/LSBranchActionBase';
 import { LSAction } from './actions/LSAction';
 import { AddAction } from './actions/AddAction';
+import { FindAction } from './actions/FindAction';
 import { LSBRANCH_CONFIG_FILENAME, LSBranchConfig } from '../config/LSBranchConfig';
 
 export const LSBRANCH_TOOL_FILENAME: string = 'lsbranch';
@@ -35,6 +36,7 @@ export class LSBranchCommandLineParser extends CommandLineParser {
 
     this.addAction(new LSAction(actionOptions));
     this.addAction(new AddAction(actionOptions));
+    this.addAction(new FindAction(actionOptions));
 
     this.#configPathParameter = this.defineStringParameter({
       parameterLongName: '--config',

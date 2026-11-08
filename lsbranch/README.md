@@ -40,6 +40,10 @@ Repository lookups run with a maximum concurrency of 15. Results remain in confi
 
 Configuration is managed by `lsbranch add`, which resolves repository paths before saving them. Stored repository paths must be non-empty and absolute for the current operating system.
 
+### Finding a branch
+
+Run `lsbranch find --branch feature/name` to find every registered clone containing that exact local branch, including clones where it is not checked out. Matching checked-out branches are green in text output. Use `--json` for matching clones and individual repository errors; branches found only in remote-tracking refs do not match. A search with no matches succeeds with an empty JSON array or a text message.
+
 ## Development
 
 From the repository root, run `rush install`, then `rush build`. Run `rush test` to build and run tests.

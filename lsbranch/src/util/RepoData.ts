@@ -16,6 +16,7 @@ import {
 export interface IRepoData {
   checkedOutBranch: string;
   otherBranches?: string[];
+  hasLocalBranch?: boolean;
 }
 
 interface IGetRepoDataResultBase {
@@ -34,7 +35,8 @@ export type IGetRepoDataResult = IGetRepoDataErrorResult | IGetRepoDataSuccessRe
 
 export async function getRepoDataAsync(
   repo: LSBranchConfigurationSchemaRepo,
-  getAllBranches: boolean
+  getAllBranches: boolean,
+  branchName?: string
 ): Promise<IGetRepoDataResult> {
   const { path: repoPath } = repo;
   try {
@@ -46,9 +48,15 @@ export async function getRepoDataAsync(
 
     const checkedOutBranch: string = parseGitHead(head);
     const data: IRepoData = { checkedOutBranch };
-    if (getAllBranches) {
+    if (getAllBranches || branchName !== undefined) {
       const branches: string[] = await readLocalBranchesAsync(commonDirectory);
-      data.otherBranches = branches.filter((branch) => branch !== checkedOutBranch);
+      if (getAllBranches) {
+        data.otherBranches = branches.filter((branch) => branch !== checkedOutBranch);
+      }
+
+      if (branchName !== undefined) {
+        data.hasLocalBranch = branches.includes(branchName);
+      }
     }
 
     return { repo, data };

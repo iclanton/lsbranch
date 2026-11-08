@@ -15,6 +15,20 @@ Array [
 ]
 `;
 
+exports[`LSBranchCommandLineParser finds checked-out and non-checked-out local branches with JSON=false: terminal output 1`] = `
+Array [
+  "[    log] One  [green]main[default][n]",
+  "[    log] Two  main[n]",
+  "[    log] Bad  [red]Unreadable repository[default][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser finds checked-out and non-checked-out local branches with JSON=true: terminal output 1`] = `
+Array [
+  "[    log] [{\\"repo\\":{\\"path\\":\\"/repos/one\\",\\"alias\\":\\"One\\"},\\"data\\":{\\"checkedOutBranch\\":\\"main\\",\\"hasLocalBranch\\":true}},{\\"repo\\":{\\"path\\":\\"/repos/two\\",\\"alias\\":\\"Two\\"},\\"data\\":{\\"checkedOutBranch\\":\\"feature\\",\\"hasLocalBranch\\":true}},{\\"repo\\":{\\"path\\":\\"/repos/bad\\",\\"alias\\":\\"Bad\\"},\\"error\\":{}}][n]",
+]
+`;
+
 exports[`LSBranchCommandLineParser lists all branches and individual Git failures with aligned continuation rows: terminal output 1`] = `
 Array [
   "[    log] Valid    [green]main[default][n]",
@@ -74,6 +88,7 @@ Positional arguments:
   <command>
     ls                  List branches.
     add                 Add a repo.
+    find                Find clones containing a local branch.
 
 Optional arguments:
   -h, --help            Show this help message and exit.
@@ -95,6 +110,18 @@ Optional arguments:
   --alias ALIAS     The repo's alias
   --no-validate     If specified, do not ensure that the repo being added 
                     exists and is valid.
+"
+`;
+
+exports[`LSBranchCommandLineParser prints the help for each action: find 1`] = `
+"usage: lsbranch find [-h] --branch NAME [--json]
+
+Matches an exact local branch name, whether or not it is checked out.
+
+Optional arguments:
+  -h, --help     Show this help message and exit.
+  --branch NAME  The exact local branch name to find.
+  --json         Present matching clones and repository errors in JSON format.
 "
 `;
 
@@ -156,9 +183,45 @@ Array [
 ]
 `;
 
+exports[`LSBranchCommandLineParser rejects invalid local branch name "../main": terminal output 1`] = `
+Array [
+  "[  error] [red]Invalid local branch name: \\"../main\\"[default][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser rejects invalid local branch name "bad branch": terminal output 1`] = `
+Array [
+  "[  error] [red]Invalid local branch name: \\"bad branch\\"[default][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser rejects invalid local branch name "main?": terminal output 1`] = `
+Array [
+  "[  error] [red]Invalid local branch name: \\"main?\\"[default][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser rejects invalid local branch name "name.lock": terminal output 1`] = `
+Array [
+  "[  error] [red]Invalid local branch name: \\"name.lock\\"[default][n]",
+]
+`;
+
 exports[`LSBranchCommandLineParser reports a missing configuration: terminal output 1`] = `
 Array [
   "[  error] [red]Config file does not exist: <project>/fixture-config.json[default][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser reports no branch matches with JSON=false: terminal output 1`] = `
+Array [
+  "[    log] No registered clones have local branch \\"absent\\".[n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser reports no branch matches with JSON=true: terminal output 1`] = `
+Array [
+  "[    log] [][n]",
 ]
 `;
 
