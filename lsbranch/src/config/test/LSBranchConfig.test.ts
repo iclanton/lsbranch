@@ -5,7 +5,7 @@ import path from 'node:path';
 import { FileSystem, JsonFile } from '@rushstack/node-core-library';
 import { StringBufferTerminalProvider, Terminal } from '@rushstack/terminal';
 
-import { LSBranchConfig, LSBranchConfigurationSchemaRepo } from '../LSBranchConfig';
+import { LSBranchConfig, LSBranchConfigurationSchemaRepo, LSBranchRepoSelector } from '../LSBranchConfig';
 import type { LSBranchConfigurationSchema } from '../lsbranchrc.schema.json.d.ts';
 
 describe(LSBranchConfig.name, () => {
@@ -147,6 +147,65 @@ describe(LSBranchConfig.name, () => {
     await expect(config.validateAsync(terminal)).resolves.toBe(false);
 
     expect(terminalProvider.getAllOutputAsChunks({ asLines: true })).toMatchSnapshot('terminal output');
+  });
+
+  it.each<LSBranchRepoSelector>([{ path: '/repo' }, { alias: 'Repo' }])(
+    'removes exactly the selected repository %j and preserves metadata',
+    async (selector) => {
+      const retainedRepo: LSBranchConfigurationSchemaRepo = { path: '/retained', alias: 'Retained' };
+      jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({
+        repos: [{ path: '/repo', alias: 'Repo' }, retainedRepo],
+        lastUpdateCheck: 123
+      });
+      const saveConfig: jest.SpyInstance = jest.spyOn(JsonFile, 'saveAsync').mockResolvedValue(true);
+      const config: LSBranchConfig = new LSBranchConfig(() => '/config.json');
+
+      await expect(config.tryRemoveRepoAsync(selector, terminal)).resolves.toBe(true);
+
+      expect(saveConfig).toHaveBeenCalledWith(
+        { repos: [retainedRepo], lastUpdateCheck: 123 },
+        config.configPath,
+        { updateExistingFile: true, prettyFormatting: true }
+      );
+      await expect(config.getConfigReposAsync()).resolves.toEqual([retainedRepo]);
+      await expect(config.tryAddRepoAsync({ path: '/repo', alias: 'Repo' }, terminal)).resolves.toBe(true);
+    }
+  );
+
+  it('reports an unmatched removal without saving', async () => {
+    jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({ repos: [{ path: '/repo' }] });
+    const saveConfig: jest.SpyInstance = jest.spyOn(JsonFile, 'saveAsync').mockResolvedValue(true);
+    const config: LSBranchConfig = new LSBranchConfig(() => '/config.json');
+
+    await expect(config.tryRemoveRepoAsync({ alias: 'Absent' }, terminal)).resolves.toBe(false);
+
+    expect(saveConfig).not.toHaveBeenCalled();
+    expect(terminalProvider.getAllOutputAsChunks({ asLines: true })).toMatchSnapshot('terminal output');
+  });
+
+  it('refuses ambiguous removal without saving', async () => {
+    jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({
+      repos: [{ path: '/one', alias: 'Shared' }, { path: '/two', alias: 'Shared' }]
+    });
+    const saveConfig: jest.SpyInstance = jest.spyOn(JsonFile, 'saveAsync').mockResolvedValue(true);
+    const config: LSBranchConfig = new LSBranchConfig(() => '/config.json');
+
+    await expect(config.tryRemoveRepoAsync({ alias: 'Shared' }, terminal)).resolves.toBe(false);
+
+    expect(saveConfig).not.toHaveBeenCalled();
+    expect(terminalProvider.getAllOutputAsChunks({ asLines: true })).toMatchSnapshot('terminal output');
+  });
+
+  it('preserves configuration and counters if removal cannot be saved', async () => {
+    const repo: LSBranchConfigurationSchemaRepo = { path: '/repo', alias: 'Repo' };
+    const error: Error = new Error('Unable to save configuration');
+    jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({ repos: [repo] });
+    jest.spyOn(JsonFile, 'saveAsync').mockRejectedValue(error);
+    const config: LSBranchConfig = new LSBranchConfig(() => '/config.json');
+
+    await expect(config.tryRemoveRepoAsync({ alias: 'Repo' }, terminal)).rejects.toBe(error);
+    await expect(config.getConfigReposAsync()).resolves.toEqual([repo]);
+    await expect(config.tryAddRepoAsync({ path: '/repo' }, terminal)).resolves.toBe(false);
   });
 
   it('reports all conflicts when adding a repository', async () => {

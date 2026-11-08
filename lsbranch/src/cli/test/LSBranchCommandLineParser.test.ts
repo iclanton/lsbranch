@@ -119,6 +119,55 @@ describe(LSBranchCommandLineParser.name, () => {
     await expect(parser.executeWithoutErrorHandlingAsync(['find', '--json'])).rejects.toThrow();
   });
 
+  it.each(['path', 'alias'])('unregisters a clone by %s without Git lookups', async (selector) => {
+    const repoPath: string = path.resolve('fixture-repo');
+    const retainedRepo: LSBranchConfigurationSchemaRepo = { path: path.resolve('retained-repo'), alias: 'Retained' };
+    const lastUpdateCheck: number = Date.now();
+    jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({
+      repos: [{ path: repoPath, alias: 'Repo' }, retainedRepo], lastUpdateCheck
+    });
+    const saveConfig: jest.SpyInstance = jest.spyOn(JsonFile, 'saveAsync').mockResolvedValue(true);
+    const lookup: jest.SpyInstance = jest.spyOn(RepoData, 'getRepoDataAsync');
+    const args: string[] = ['--config', 'fixture-config.json', 'remove'];
+    args.push(...(selector === 'path' ? ['--path', 'fixture-repo'] : ['--alias', 'Repo']));
+
+    await parser.executeAsync(args);
+
+    expect(process.exitCode).toBe(0);
+    expect(lookup).not.toHaveBeenCalled();
+    expect(saveConfig).toHaveBeenCalledWith(
+      { repos: [retainedRepo], lastUpdateCheck },
+      path.resolve('fixture-config.json'),
+      { updateExistingFile: true, prettyFormatting: true }
+    );
+    expect(getTerminalOutput()).toMatchSnapshot('terminal output');
+  });
+
+  it.each([[], ['--path', '/repo', '--alias', 'Repo']])(
+    'requires exactly one removal selector for arguments %j',
+    async (...args) => {
+      jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({ repos: [], lastUpdateCheck: Date.now() });
+      const saveConfig: jest.SpyInstance = jest.spyOn(JsonFile, 'saveAsync').mockResolvedValue(true);
+
+      await parser.executeAsync(['remove', ...args]);
+
+      expect(process.exitCode).toBe(1);
+      expect(saveConfig).not.toHaveBeenCalled();
+      expect(getTerminalOutput()).toMatchSnapshot('terminal output');
+    }
+  );
+
+  it('reports removal of an unregistered alias', async () => {
+    jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({ repos: [], lastUpdateCheck: Date.now() });
+    const saveConfig: jest.SpyInstance = jest.spyOn(JsonFile, 'saveAsync').mockResolvedValue(true);
+
+    await parser.executeAsync(['remove', '--alias', 'Absent']);
+
+    expect(process.exitCode).toBe(1);
+    expect(saveConfig).not.toHaveBeenCalled();
+    expect(getTerminalOutput()).toMatchSnapshot('terminal output');
+  });
+
   it('prints the help for each action', () => {
     for (const action of parser.actions) {
       const helpText: string = AnsiEscape.formatForTests(action.renderHelpText());

@@ -44,6 +44,10 @@ Configuration is managed by `lsbranch add`, which resolves repository paths befo
 
 Run `lsbranch find --branch feature/name` to find every registered clone containing that exact local branch, including clones where it is not checked out. Matching checked-out branches are green in text output. Use `--json` for matching clones and individual repository errors; branches found only in remote-tracking refs do not match. A search with no matches succeeds with an empty JSON array or a text message.
 
+### Removing a clone
+
+Run `lsbranch remove --alias Repo1` or `lsbranch remove --path /path/to/clone` to unregister exactly one clone. Relative path arguments are resolved before matching. Supply exactly one selector; missing or ambiguous matches are errors. This only updates configuration and never deletes the clone's files.
+
 ## Development
 
 From the repository root, run `rush install`, then `rush build`. Run `rush test` to build and run tests.

@@ -12,10 +12,22 @@ Array [
 ]
 `;
 
+exports[`LSBranchConfig refuses ambiguous removal without saving: terminal output 1`] = `
+Array [
+  "[  error] [red]Multiple registered repositories match alias \\"Shared\\".[default][n]",
+]
+`;
+
 exports[`LSBranchConfig reports all conflicts when adding a repository: terminal output 1`] = `
 Array [
   "[  error] [red]Repo alias \\"Shared\\" already exists[default][n]",
   "[  error] [red]Repo path \\"/repo\\" already exists[default][n]",
+]
+`;
+
+exports[`LSBranchConfig reports an unmatched removal without saving: terminal output 1`] = `
+Array [
+  "[  error] [red]No registered repository matches alias \\"Absent\\".[default][n]",
 ]
 `;
 

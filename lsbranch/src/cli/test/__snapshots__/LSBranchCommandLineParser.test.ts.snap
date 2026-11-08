@@ -89,6 +89,7 @@ Positional arguments:
     ls                  List branches.
     add                 Add a repo.
     find                Find clones containing a local branch.
+    remove              Unregister a repository.
 
 Optional arguments:
   -h, --help            Show this help message and exit.
@@ -133,6 +134,18 @@ Optional arguments:
   --json      If specified, present data in JSON format.
   -a, --all   If specified, display all local branches.
   --other     List only local branches that are not checked out in each clone.
+"
+`;
+
+exports[`LSBranchCommandLineParser prints the help for each action: remove 1`] = `
+"usage: lsbranch remove [-h] [--path REPO_PATH] [--alias ALIAS]
+
+Remove a registered repository by path or alias, without deleting its files.
+
+Optional arguments:
+  -h, --help        Show this help message and exit.
+  --path REPO_PATH  The path of the registered repository to remove.
+  --alias ALIAS     The exact alias of the registered repository to remove.
 "
 `;
 
@@ -225,6 +238,12 @@ Array [
 ]
 `;
 
+exports[`LSBranchCommandLineParser reports removal of an unregistered alias: terminal output 1`] = `
+Array [
+  "[  error] [red]No registered repository matches alias \\"Absent\\".[default][n]",
+]
+`;
+
 exports[`LSBranchCommandLineParser reports unconfigured repositories at the default config path: terminal output 1`] = `
 Array [
   "[  error] [red]No repos have been configured. Add a repo with \\"lsbranch add\\"[default][n]",
@@ -234,5 +253,29 @@ Array [
 exports[`LSBranchCommandLineParser reports unexpected configuration failures: terminal output 1`] = `
 Array [
   "[  error] [red]An unexpected error occurred: Error: Invalid configuration[default][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser requires exactly one removal selector for arguments "--path": terminal output 1`] = `
+Array [
+  "[  error] [red]Specify exactly one of --path or --alias.[default][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser requires exactly one removal selector for arguments %j: terminal output 1`] = `
+Array [
+  "[  error] [red]Specify exactly one of --path or --alias.[default][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser unregisters a clone by alias without Git lookups: terminal output 1`] = `
+Array [
+  "[    log] Removed registered repository: Repo[n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser unregisters a clone by path without Git lookups: terminal output 1`] = `
+Array [
+  "[    log] Removed registered repository: <project>/fixture-repo[n]",
 ]
 `;
