@@ -16,6 +16,7 @@ const REPO_LOOKUP_CONCURRENCY: number = 15;
 export class LSAction extends LSBranchActionBase {
   readonly #jsonFlag: CommandLineFlagParameter;
   readonly #allFlag: CommandLineFlagParameter;
+  readonly #otherFlag: CommandLineFlagParameter;
 
   protected get _outputIsMachineReadable(): boolean {
     return this.#jsonFlag.value;
@@ -38,10 +39,20 @@ export class LSAction extends LSBranchActionBase {
       parameterShortName: '-a',
       description: 'If specified, display all local branches.'
     });
+
+    this.#otherFlag = this.defineFlagParameter({
+      parameterLongName: '--other',
+      description: 'List only local branches that are not checked out in each clone.'
+    });
   }
 
   protected override async _executeInnerAsync(): Promise<void> {
     const { _config: config, _terminal: terminal } = this;
+    if (this.#allFlag.value && this.#otherFlag.value) {
+      terminal.writeErrorLine('Specify only one of --all or --other.');
+      throw new AlreadyReportedError();
+    }
+
     const configExists: boolean = await config.getConfigExistsAsync();
     if (!configExists) {
       if (config.isDefaultConfigPath) {
@@ -62,7 +73,7 @@ export class LSAction extends LSBranchActionBase {
     }
 
     const repos: LSBranchConfigurationSchemaRepo[] = await config.getConfigReposAsync();
-    const getAllBranches: boolean = this.#allFlag.value;
+    const getAllBranches: boolean = this.#allFlag.value || this.#otherFlag.value;
     const reposData: IGetRepoDataResult[] = await Async.mapAsync(
       repos,
       (repo) => getRepoDataAsync(repo, getAllBranches),
@@ -70,7 +81,18 @@ export class LSAction extends LSBranchActionBase {
     );
 
     if (this.#jsonFlag.value) {
-      terminal.writeLine(JSON.stringify(reposData));
+      if (this.#otherFlag.value) {
+        terminal.writeLine(JSON.stringify(reposData.map((result) => {
+            if ('error' in result) {
+              return result;
+            }
+
+            const { repo, data: { otherBranches } } = result;
+            return { repo, data: { otherBranches } };
+          })));
+      } else {
+        terminal.writeLine(JSON.stringify(reposData));
+      }
     } else {
       this.#printDataAsTable(reposData, getAllBranches);
     }
@@ -89,7 +111,7 @@ export class LSAction extends LSBranchActionBase {
       } else {
         const { data } = repoData;
         const { checkedOutBranch, otherBranches } = data;
-        resultColumnContentsLines = [
+        resultColumnContentsLines = this.#otherFlag.value ? [] : [
           printCheckedOutBranchesInGreen ? Colorize.green(checkedOutBranch) : checkedOutBranch
         ];
         if (otherBranches) {

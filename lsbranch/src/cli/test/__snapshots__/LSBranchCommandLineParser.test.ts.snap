@@ -23,6 +23,19 @@ Array [
 ]
 `;
 
+exports[`LSBranchCommandLineParser lists only non-checked-out branches in JSON output: terminal output 1`] = `
+Array [
+  "[    log] [{\\"repo\\":{\\"path\\":\\"/repo\\",\\"alias\\":\\"Repo\\"},\\"data\\":{\\"otherBranches\\":[\\"feature\\",\\"topic\\"]}}][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser lists only non-checked-out branches in text output: terminal output 1`] = `
+Array [
+  "[    log] Repo  feature[n]",
+  "[    log]       topic[n]",
+]
+`;
+
 exports[`LSBranchCommandLineParser lists the current branch as JSON: terminal output 1`] = `
 Array [
   "[    log] [{\\"repo\\":{\\"path\\":\\"<project>/fixture-repo\\",\\"alias\\":\\"Repo\\"},\\"data\\":{\\"checkedOutBranch\\":\\"feature/nested\\"}}][n]",
@@ -86,12 +99,13 @@ Optional arguments:
 `;
 
 exports[`LSBranchCommandLineParser prints the help for each action: ls 1`] = `
-"usage: lsbranch ls [-h] [--json] [-a]
+"usage: lsbranch ls [-h] [--json] [-a] [--other]
 
 Optional arguments:
   -h, --help  Show this help message and exit.
   --json      If specified, present data in JSON format.
   -a, --all   If specified, display all local branches.
+  --other     List only local branches that are not checked out in each clone.
 "
 `;
 
@@ -107,6 +121,12 @@ exports[`LSBranchCommandLineParser rejects a nonexistent repository without savi
 Array [
   "[  error] [red]Specified repo path is not valid: .git folder doesn't exist[default][n]",
   "[  error] [red]If this is expected, provide the \\"--no-validate\\" flag[default][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser rejects combining --other and --all: terminal output 1`] = `
+Array [
+  "[  error] [red]Specify only one of --all or --other.[default][n]",
 ]
 `;
 

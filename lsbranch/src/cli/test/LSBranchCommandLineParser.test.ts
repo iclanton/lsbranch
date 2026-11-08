@@ -2,11 +2,11 @@
 // See LICENSE in the project root for license information.
 
 import path from 'node:path';
-import { ChildProcess } from 'node:child_process';
-import { Async, Executable, FileSystem, IWaitForExitResult, JsonFile } from '@rushstack/node-core-library';
+import { Async, FileSystem, JsonFile } from '@rushstack/node-core-library';
 import { AnsiEscape, Colorize, ConsoleTerminalProvider, StringBufferTerminalProvider } from '@rushstack/terminal';
 import { LSBranchCommandLineParser } from '../LSBranchCommandLineParser';
 import * as RepoData from '../../util/RepoData';
+import * as GitRepository from '../../util/GitRepository';
 import { LSBranchConfigurationSchemaRepo } from '../../config/LSBranchConfig';
 
 describe(LSBranchCommandLineParser.name, () => {
@@ -45,6 +45,10 @@ describe(LSBranchCommandLineParser.name, () => {
     parser = new LSBranchCommandLineParser();
     terminalProvider = new StringBufferTerminalProvider(true);
     parser.terminal.registerProvider(terminalProvider);
+    jest.spyOn(GitRepository, 'getGitPathsAsync').mockImplementation(async (repoPath) => {
+      const gitDirectory: string = path.join(repoPath, '.git');
+      return { gitDirectory, commonDirectory: gitDirectory };
+    });
   });
 
   afterEach(() => {
@@ -217,6 +221,9 @@ describe(LSBranchCommandLineParser.name, () => {
     });
     jest.spyOn(FileSystem, 'readFileAsync').mockRejectedValue(missingConfigError);
     jest.spyOn(FileSystem, 'existsAsync').mockResolvedValue(false);
+    jest
+      .spyOn(GitRepository, 'getGitPathsAsync')
+      .mockRejectedValue(new GitRepository.GitRepositoryError(".git folder doesn't exist"));
     const saveConfig: jest.SpyInstance = jest.spyOn(JsonFile, 'saveAsync').mockResolvedValue(true);
 
     await parser.executeAsync(['--config', 'fixture-config.json', 'add', '--path', repoPath]);
@@ -237,23 +244,16 @@ describe(LSBranchCommandLineParser.name, () => {
       ],
       lastUpdateCheck: Date.now()
     });
-    jest.spyOn(Executable, 'spawn').mockReturnValue(new ChildProcess());
-    const successResult: IWaitForExitResult<string> = {
-      exitCode: 0,
-      signal: null,
-      stdout: '* main\n  feature\n',
-      stderr: ''
-    };
-    const errorResult: IWaitForExitResult<string> = {
-      exitCode: 128,
-      signal: null,
-      stdout: '',
-      stderr: 'not a git repository'
-    };
     jest
-      .spyOn(Executable, 'waitForExitAsync')
-      .mockResolvedValueOnce(successResult)
-      .mockResolvedValueOnce(errorResult);
+      .spyOn(RepoData, 'getRepoDataAsync')
+      .mockResolvedValueOnce({
+        repo: { path: path.resolve('valid-repo'), alias: 'Valid' },
+        data: { checkedOutBranch: 'main', otherBranches: ['feature'] }
+      })
+      .mockResolvedValueOnce({
+        repo: { path: path.resolve('invalid-repo'), alias: 'Invalid' },
+        error: new Error('git branch failed with exit code 128: not a git repository')
+      });
 
     await parser.executeAsync(['--config', 'fixture-config.json', 'ls', '--all']);
 
@@ -301,6 +301,56 @@ describe(LSBranchCommandLineParser.name, () => {
     expect(writeLine).not.toHaveBeenCalled();
     expect(getTerminalOutput()).toMatchSnapshot('terminal output');
   });
+
+  it('lists only non-checked-out branches in text output', async () => {
+      const repo: LSBranchConfigurationSchemaRepo = { path: '/repo', alias: 'Repo' };
+      jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({ repos: [repo], lastUpdateCheck: Date.now() });
+      const lookup: jest.SpyInstance = jest.spyOn(RepoData, 'getRepoDataAsync').mockResolvedValue({
+        repo,
+        data: { checkedOutBranch: 'main', otherBranches: ['feature', 'topic'] }
+      });
+
+      await parser.executeAsync(['--other']);
+
+      expect(process.exitCode).toBe(0);
+      expect(lookup).toHaveBeenCalledWith(repo, true);
+      expect(getTerminalOutput()).toMatchSnapshot('terminal output');
+    });
+
+  it('lists only non-checked-out branches in JSON output', async () => {
+      const repo: LSBranchConfigurationSchemaRepo = { path: '/repo', alias: 'Repo' };
+      jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({ repos: [repo], lastUpdateCheck: Date.now() });
+      jest.spyOn(RepoData, 'getRepoDataAsync').mockResolvedValue({
+        repo,
+        data: { checkedOutBranch: 'main', otherBranches: ['feature', 'topic'] }
+      });
+
+      await parser.executeAsync(['ls', '--other', '--json']);
+
+      expect(process.exitCode).toBe(0);
+      expect(getTerminalOutput()).toMatchSnapshot('terminal output');
+    });
+
+  it('omits text rows for clones with no other branches', async () => {
+      const repo: LSBranchConfigurationSchemaRepo = { path: '/repo', alias: 'Repo' };
+      jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({ repos: [repo], lastUpdateCheck: Date.now() });
+      jest.spyOn(RepoData, 'getRepoDataAsync').mockResolvedValue({
+        repo,
+        data: { checkedOutBranch: 'main', otherBranches: [] }
+      });
+
+      await parser.executeAsync(['--other']);
+
+      expect(process.exitCode).toBe(0);
+      expect(getTerminalOutput()).toEqual([]);
+    });
+
+  it('rejects combining --other and --all', async () => {
+      await parser.executeAsync(['--other', '--all', '--json']);
+
+      expect(process.exitCode).toBe(1);
+      expect(getTerminalOutput()).toMatchSnapshot('terminal output');
+    });
 
   it.each([false, true])(
     'limits repository lookups to 15 and preserves JSON order with --all=%s',

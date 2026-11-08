@@ -32,9 +32,11 @@ Repo 2                feature/branch
 
 Thats it!
 
-With `--all`, Git command failures are reported for the affected repository without preventing other repositories from being listed.
+Use `lsbranch --all` to list all local branches, with checked-out branches highlighted in green. Use `lsbranch --other` to list only branches not checked out in each individual clone; clones with no other branches have no text rows. `--all` and `--other` are mutually exclusive. Both flags support `--json`.
 
-Repository lookups run with a maximum concurrency of 15, including Git processes with `--all`. Results remain in configuration order.
+Repository lookups read Git metadata directly from the filesystem, including loose and packed branch refs and linked-worktree Git directories. No Git subprocesses are launched. Unsupported reftable storage and unreadable/corrupt repositories are reported individually without hiding other clones' results.
+
+Repository lookups run with a maximum concurrency of 15. Results remain in configuration order. The existing once-a-day npm update check is retained and can occasionally add network latency to text-mode commands.
 
 Configuration is managed by `lsbranch add`, which resolves repository paths before saving them. Stored repository paths must be non-empty and absolute for the current operating system.
 

@@ -4,6 +4,11 @@
       "comment": "Default to listing branches when no action is specified.",
       "type": "minor",
       "packageName": "lsbranch"
+    },
+    {
+      "comment": "Read local branches from Git metadata without subprocesses and add --other to list branches not checked out in each clone.",
+      "type": "minor",
+      "packageName": "lsbranch"
     }
   ],
   "packageName": "lsbranch"
