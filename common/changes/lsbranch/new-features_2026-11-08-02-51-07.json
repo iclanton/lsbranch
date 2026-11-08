@@ -6,17 +6,17 @@
       "packageName": "lsbranch"
     },
     {
-      "comment": "Read local branches from Git metadata without subprocesses and add --other to list branches not checked out in each clone.",
+      "comment": "Read local branches from Git metadata without subprocesses.",
       "type": "minor",
       "packageName": "lsbranch"
     },
     {
-      "comment": "Add find --branch to locate clones containing an exact local branch, including branches that are not checked out.",
+      "comment": "Add `find --branch` to locate clones containing local branches matching a name or shell-style glob, including branches that are not checked out.",
       "type": "minor",
       "packageName": "lsbranch"
     },
     {
-      "comment": "Add remove --path or --alias to unregister a clone without deleting its files.",
+      "comment": "Add remove `--path` or `--alias` to unregister a clone without deleting its files.",
       "type": "minor",
       "packageName": "lsbranch"
     },

@@ -47,11 +47,11 @@ describe(LSBranchCommandLineParser.name, () => {
     terminalProvider = new StringBufferTerminalProvider(true);
     parser.terminal.registerProvider(terminalProvider);
     jest.spyOn(GitRepository, 'getGitPathsAsync').mockImplementation(async (repoPath) => {
-      const gitDirectory: string = path.join(repoPath, '.git');
+      const gitDirectory: string = `${repoPath}/.git`;
       return { gitDirectory, commonDirectory: gitDirectory };
     });
     jest.spyOn(RepoIdentity, 'getRepoIdentityAsync').mockImplementation(async (repoPath) => ({
-      commonDirectory: path.join(repoPath, '.git'),
+      commonDirectory: `${repoPath}/.git`,
       remoteKeys: []
     }));
   });
@@ -62,7 +62,7 @@ describe(LSBranchCommandLineParser.name, () => {
   });
 
   it('prints the global help', () => {
-    const helpText: string = AnsiEscape.formatForTests(parser.renderHelpText());
+    const helpText: string = AnsiEscape.formatForTests(parser.renderHelpText()).replace(/[ \t]+$/gm, '');
     expect(helpText).toMatchSnapshot();
   });
 
@@ -75,9 +75,9 @@ describe(LSBranchCommandLineParser.name, () => {
     ];
     jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({ repos, lastUpdateCheck: Date.now() });
     const lookup: jest.SpyInstance = jest.spyOn(RepoData, 'getRepoDataAsync')
-      .mockResolvedValueOnce({ repo: repos[0], data: { checkedOutBranch: 'main', hasLocalBranch: true, branchIsCheckedOut: true } })
-      .mockResolvedValueOnce({ repo: repos[1], data: { checkedOutBranch: 'feature', hasLocalBranch: true, branchIsCheckedOut: false } })
-      .mockResolvedValueOnce({ repo: repos[2], data: { checkedOutBranch: 'topic', hasLocalBranch: false } })
+      .mockResolvedValueOnce({ repo: repos[0], data: { checkedOutBranch: 'main', hasLocalBranch: true, branchIsCheckedOut: true, matchingBranches: ['main'] } })
+      .mockResolvedValueOnce({ repo: repos[1], data: { checkedOutBranch: 'feature', hasLocalBranch: true, branchIsCheckedOut: false, matchingBranches: ['main'] } })
+      .mockResolvedValueOnce({ repo: repos[2], data: { checkedOutBranch: 'topic', hasLocalBranch: false, matchingBranches: [] } })
       .mockResolvedValueOnce({ repo: repos[3], error: new Error('Unreadable repository') });
     const args: string[] = ['find', '--branch', 'main'];
     if (json) {
@@ -95,7 +95,7 @@ describe(LSBranchCommandLineParser.name, () => {
     const repo: LSBranchConfigurationSchemaRepo = { path: '/repo', alias: 'Repo' };
     jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({ repos: [repo], lastUpdateCheck: Date.now() });
     jest.spyOn(RepoData, 'getRepoDataAsync').mockResolvedValue({
-      repo, data: { checkedOutBranch: 'main', hasLocalBranch: false }
+      repo, data: { checkedOutBranch: 'main', hasLocalBranch: false, matchingBranches: [] }
     });
     const args: string[] = ['find', '--branch', 'absent'];
     if (json) {
@@ -108,13 +108,43 @@ describe(LSBranchCommandLineParser.name, () => {
     expect(getTerminalOutput()).toMatchSnapshot('terminal output');
   });
 
-  it.each(['../main', 'bad branch', 'name.lock', 'main?'])('rejects invalid local branch name %j', async (branch) => {
+  it('rejects an empty branch pattern', async () => {
     const lookup: jest.SpyInstance = jest.spyOn(RepoData, 'getRepoDataAsync');
 
-    await parser.executeAsync(['find', '--branch', branch, '--json']);
+    await parser.executeAsync(['find', '--branch', '', '--json']);
 
     expect(process.exitCode).toBe(1);
     expect(lookup).not.toHaveBeenCalled();
+    expect(getTerminalOutput()).toMatchSnapshot('terminal output');
+  });
+
+  it.each([false, true])('prints all matching branches for a glob with JSON=%s', async (json) => {
+    const repo: LSBranchConfigurationSchemaRepo = { path: '/repo', alias: 'Repo' };
+    const unmatchedRepo: LSBranchConfigurationSchemaRepo = { path: '/unmatched', alias: 'Unmatched' };
+    jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({
+      repos: [repo, unmatchedRepo], lastUpdateCheck: Date.now()
+    });
+    const lookup: jest.SpyInstance = jest.spyOn(RepoData, 'getRepoDataAsync')
+      .mockResolvedValueOnce({
+        repo,
+        data: {
+          checkedOutBranch: 'feature/current',
+          hasLocalBranch: true,
+          branchIsCheckedOut: true,
+          matchingBranches: ['feature/current', 'feature/nested/topic']
+        }
+      })
+      .mockResolvedValueOnce({
+        repo: unmatchedRepo,
+        data: { checkedOutBranch: 'main', hasLocalBranch: false, matchingBranches: [] }
+      });
+
+    await parser.executeAsync(json
+      ? ['find', '--branch', 'feature/**', '--json']
+      : ['find', '--branch', 'feature/**']);
+
+    expect(process.exitCode).toBe(0);
+    expect(lookup).toHaveBeenNthCalledWith(1, repo, false, 'feature/**');
     expect(getTerminalOutput()).toMatchSnapshot('terminal output');
   });
 
@@ -219,7 +249,11 @@ describe(LSBranchCommandLineParser.name, () => {
     ];
     jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({ repos, lastUpdateCheck: Date.now() });
     jest.spyOn(RepoData, 'getRepoDataAsync').mockImplementation(async (repo) => ({
-      repo, data: { checkedOutBranch: 'main', hasLocalBranch: repo.alias !== 'Bridge' }
+      repo, data: {
+        checkedOutBranch: 'main',
+        hasLocalBranch: repo.alias !== 'Bridge',
+        matchingBranches: repo.alias !== 'Bridge' ? ['feature'] : []
+      }
     }));
     jest.spyOn(RepoIdentity, 'getRepoIdentityAsync').mockImplementation(async (repoPath) => ({
       commonDirectory: `${repoPath}/.git`,
@@ -250,7 +284,7 @@ describe(LSBranchCommandLineParser.name, () => {
     const repo: LSBranchConfigurationSchemaRepo = { path: '/repo', alias: 'Repo' };
     jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({ repos: [repo], lastUpdateCheck: Date.now() });
     jest.spyOn(RepoData, 'getRepoDataAsync').mockResolvedValue({
-      repo, data: { checkedOutBranch: hash, hasLocalBranch: true, branchIsCheckedOut: false }
+      repo, data: { checkedOutBranch: hash, hasLocalBranch: true, branchIsCheckedOut: false, matchingBranches: [hash] }
     });
 
     await parser.executeAsync(['find', '--branch', hash]);
@@ -261,7 +295,7 @@ describe(LSBranchCommandLineParser.name, () => {
 
   it('prints the help for each action', () => {
     for (const action of parser.actions) {
-      const helpText: string = AnsiEscape.formatForTests(action.renderHelpText());
+      const helpText: string = AnsiEscape.formatForTests(action.renderHelpText()).replace(/[ \t]+$/gm, '');
       expect(helpText).toMatchSnapshot(action.actionName);
     }
   });
@@ -505,55 +539,12 @@ describe(LSBranchCommandLineParser.name, () => {
     expect(getTerminalOutput()).toMatchSnapshot('terminal output');
   });
 
-  it('lists only non-checked-out branches in text output', async () => {
-      const repo: LSBranchConfigurationSchemaRepo = { path: '/repo', alias: 'Repo' };
-      jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({ repos: [repo], lastUpdateCheck: Date.now() });
-      const lookup: jest.SpyInstance = jest.spyOn(RepoData, 'getRepoDataAsync').mockResolvedValue({
-        repo,
-        data: { checkedOutBranch: 'main', otherBranches: ['feature', 'topic'] }
-      });
+  it('rejects the removed --other flag', async () => {
+    jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
-      await parser.executeAsync(['--other']);
-
-      expect(process.exitCode).toBe(0);
-      expect(lookup).toHaveBeenCalledWith(repo, true);
-      expect(getTerminalOutput()).toMatchSnapshot('terminal output');
-    });
-
-  it('lists only non-checked-out branches in JSON output', async () => {
-      const repo: LSBranchConfigurationSchemaRepo = { path: '/repo', alias: 'Repo' };
-      jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({ repos: [repo], lastUpdateCheck: Date.now() });
-      jest.spyOn(RepoData, 'getRepoDataAsync').mockResolvedValue({
-        repo,
-        data: { checkedOutBranch: 'main', otherBranches: ['feature', 'topic'] }
-      });
-
-      await parser.executeAsync(['ls', '--other', '--json']);
-
-      expect(process.exitCode).toBe(0);
-      expect(getTerminalOutput()).toMatchSnapshot('terminal output');
-    });
-
-  it('omits text rows for clones with no other branches', async () => {
-      const repo: LSBranchConfigurationSchemaRepo = { path: '/repo', alias: 'Repo' };
-      jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({ repos: [repo], lastUpdateCheck: Date.now() });
-      jest.spyOn(RepoData, 'getRepoDataAsync').mockResolvedValue({
-        repo,
-        data: { checkedOutBranch: 'main', otherBranches: [] }
-      });
-
-      await parser.executeAsync(['--other']);
-
-      expect(process.exitCode).toBe(0);
-      expect(getTerminalOutput()).toEqual([]);
-    });
-
-  it('rejects combining --other and --all', async () => {
-      await parser.executeAsync(['--other', '--all', '--json']);
-
-      expect(process.exitCode).toBe(1);
-      expect(getTerminalOutput()).toMatchSnapshot('terminal output');
-    });
+    await expect(parser.executeWithoutErrorHandlingAsync(['--other', '--json'])).rejects.toThrow();
+    expect(parser.selectedAction).toBeUndefined();
+  });
 
   it.each([false, true])(
     'limits repository lookups to 15 and preserves JSON order with --all=%s',

@@ -4,7 +4,6 @@
 import { AlreadyReportedError } from '@rushstack/node-core-library';
 import { CommandLineFlagParameter, IRequiredCommandLineStringParameter } from '@rushstack/ts-command-line';
 
-import { isValidLocalBranchName } from '../../util/GitRepository';
 import { IGetRepoDataResult } from '../../util/RepoData';
 import { printRepoGroupsAsTable } from '../../util/RepoDataPrinter';
 import { groupRepoResultsAsync } from '../../util/RepoGrouping';
@@ -22,13 +21,13 @@ export class FindAction extends LSBranchActionBase {
     super(options, {
       actionName: 'find',
       summary: 'Find clones containing a local branch.',
-      documentation: 'Matches an exact local branch name, whether or not it is checked out.'
+      documentation: 'Matches local branch names using a shell-style glob, whether or not they are checked out.'
     });
     this.#branchParameter = this.defineStringParameter({
       parameterLongName: '--branch',
-      argumentName: 'NAME',
+      argumentName: 'PATTERN',
       required: true,
-      description: 'The exact local branch name to find.'
+      description: 'A local branch name or shell-style glob, for example "feature/**". Quote patterns to prevent shell expansion.'
     });
 
     this.#jsonFlag = this.defineFlagParameter({
@@ -39,23 +38,35 @@ export class FindAction extends LSBranchActionBase {
 
   protected override async _executeInnerAsync(): Promise<void> {
     const { _terminal: terminal } = this;
-    const branch: string = this.#branchParameter.value;
-    if (!isValidLocalBranchName(branch)) {
-      terminal.writeErrorLine(`Invalid local branch name: ${JSON.stringify(branch)}`);
+    const pattern: string = this.#branchParameter.value;
+    if (!pattern) {
+      terminal.writeErrorLine('The branch pattern must not be empty.');
       throw new AlreadyReportedError();
     }
 
-    const results: IGetRepoDataResult[] = await this._getReposDataAsync(false, branch);
-    const groups: IGetRepoDataResult[][] = (await groupRepoResultsAsync(results, terminal))
-      .map((group) => group.filter((result) => 'error' in result || result.data.hasLocalBranch))
-      .filter((group) => group.length > 0);
-    const matches: IGetRepoDataResult[] = groups.flat();
+    const results: IGetRepoDataResult[] = await this._getReposDataAsync(false, pattern);
+    const groups: IGetRepoDataResult[][] = [];
+    const matches: IGetRepoDataResult[] = [];
+    for (const group of await groupRepoResultsAsync(results, terminal)) {
+      const matchingGroup: IGetRepoDataResult[] = [];
+      for (const result of group) {
+        if ('error' in result || result.data.hasLocalBranch) {
+          matchingGroup.push(result);
+          matches.push(result);
+        }
+      }
+
+      if (matchingGroup.length > 0) {
+        groups.push(matchingGroup);
+      }
+    }
+
     if (this.#jsonFlag.value) {
       terminal.writeLine(JSON.stringify(matches));
     } else if (matches.length === 0) {
-      terminal.writeLine(`No registered clones have local branch "${branch}".`);
+      terminal.writeLine(`No registered clones have local branches matching ${JSON.stringify(pattern)}.`);
     } else {
-      printRepoGroupsAsTable(terminal, groups, 'current', branch);
+      printRepoGroupsAsTable(terminal, groups, 'current', true);
     }
   }
 }

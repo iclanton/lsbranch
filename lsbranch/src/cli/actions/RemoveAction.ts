@@ -23,13 +23,13 @@ export class RemoveAction extends LSBranchActionBase {
     this.#pathParameter = this.defineStringParameter({
       parameterLongName: '--path',
       argumentName: 'REPO_PATH',
-      description: 'The path of the registered repository to remove.'
+      description: 'The path of the registered repository to remove. Mutually exclusive with --alias.'
     });
 
     this.#aliasParameter = this.defineStringParameter({
       parameterLongName: '--alias',
       argumentName: 'ALIAS',
-      description: 'The exact alias of the registered repository to remove.'
+      description: 'The exact alias of the registered repository to remove. Mutually exclusive with --path.'
     });
   }
 

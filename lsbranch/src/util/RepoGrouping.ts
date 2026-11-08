@@ -7,7 +7,8 @@ import { GitRepositoryError } from './GitRepository';
 import { IGetRepoDataResult } from './RepoData';
 import { getRepoIdentityAsync, IRepoIdentity } from './RepoIdentity';
 
-const COLLATOR: Intl.Collator = new Intl.Collator('en', { sensitivity: 'base' });
+// Fix the locale for consistent, case-insensitive alphabetical ordering across machines.
+const ALIAS_COLLATOR: Intl.Collator = new Intl.Collator('en', { sensitivity: 'base' });
 type IdentityResult = { identity: IRepoIdentity } | { error: Error } | undefined;
 interface ITraversalFrame {
   node: number;
@@ -20,10 +21,10 @@ interface ITraversalFrame {
 function compareRepos(left: IGetRepoDataResult, right: IGetRepoDataResult): number {
   const { repo: { alias: leftAlias, path: leftPath } } = left;
   const { repo: { alias: rightAlias, path: rightPath } } = right;
-  return COLLATOR.compare(
+  return ALIAS_COLLATOR.compare(
     AnsiEscape.removeCodes(leftAlias || leftPath),
     AnsiEscape.removeCodes(rightAlias || rightPath)
-  ) || COLLATOR.compare(leftPath, rightPath);
+  ) || ALIAS_COLLATOR.compare(leftPath, rightPath);
 }
 
 export async function groupRepoResultsAsync(

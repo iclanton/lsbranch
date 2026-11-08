@@ -4,20 +4,17 @@
 import { Colorize, ITerminal, TerminalTable } from '@rushstack/terminal';
 import { IGetRepoDataResult } from './RepoData';
 
-export type BranchDisplayMode = 'current' | 'all' | 'other';
+export type BranchDisplayMode = 'current' | 'all';
 
 export function printRepoGroupsAsTable(
   terminal: ITerminal,
   groups: IGetRepoDataResult[][],
   mode: BranchDisplayMode,
-  matchedBranch?: string
+  showMatchingBranches: boolean = false
 ): void {
   let printedGroup: boolean = false;
   for (const group of groups) {
-    const visible: IGetRepoDataResult[] = mode === 'other' && matchedBranch === undefined
-      ? group.filter((result) => 'error' in result || (result.data.otherBranches?.length ?? 0) > 0)
-      : group;
-    if (visible.length === 0) {
+    if (group.length === 0) {
       continue;
     }
 
@@ -25,7 +22,7 @@ export function printRepoGroupsAsTable(
       terminal.writeLine();
     }
 
-    printRepoDataAsTable(terminal, visible, mode, matchedBranch);
+    printRepoDataAsTable(terminal, group, mode, showMatchingBranches);
     printedGroup = true;
   }
 }
@@ -34,7 +31,7 @@ export function printRepoDataAsTable(
   terminal: ITerminal,
   results: IGetRepoDataResult[],
   mode: BranchDisplayMode,
-  matchedBranch?: string
+  showMatchingBranches: boolean = false
 ): void {
   const table: TerminalTable = new TerminalTable({ borderless: true });
   for (const result of results) {
@@ -46,17 +43,25 @@ export function printRepoDataAsTable(
       table.push([name, Colorize.red(error.message)]);
     } else {
       const { data } = result;
-      const { checkedOutBranch, otherBranches, branchIsCheckedOut } = data;
-      if (matchedBranch !== undefined) {
-        table.push([name, branchIsCheckedOut ? Colorize.green(matchedBranch) : matchedBranch]);
-      } else {
-        if (mode !== 'other') {
-          table.push([name, mode === 'all' ? Colorize.green(checkedOutBranch) : checkedOutBranch]);
+      const { checkedOutBranch, otherBranches, branchIsCheckedOut, matchingBranches } = data;
+      if (showMatchingBranches) {
+        if (matchingBranches === undefined) {
+          throw new Error('Expected matching branch data for find output.');
         }
+
+        for (let index: number = 0; index < matchingBranches.length; index++) {
+          const branch: string = matchingBranches[index];
+          table.push([
+            index === 0 ? name : '',
+            branchIsCheckedOut && branch === checkedOutBranch ? Colorize.green(branch) : branch
+          ]);
+        }
+      } else {
+        table.push([name, mode === 'all' ? Colorize.green(checkedOutBranch) : checkedOutBranch]);
 
         if (mode !== 'current' && otherBranches) {
           for (let index: number = 0; index < otherBranches.length; index++) {
-            table.push([mode === 'other' && index === 0 ? name : '', otherBranches[index]]);
+            table.push(['', otherBranches[index]]);
           }
         }
       }

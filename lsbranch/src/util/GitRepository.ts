@@ -26,30 +26,28 @@ export async function readOptionalGitFileAsync(filename: string): Promise<string
 }
 
 export async function getGitPathsAsync(repoPath: string): Promise<IGitPaths> {
-  const dotGitPath: string = path.join(repoPath, '.git');
+  const dotGitPath: string = `${repoPath}/.git`;
   let gitDirectory: string = dotGitPath;
   try {
-    const stats: FileSystemStats = await FileSystem.getStatisticsAsync(dotGitPath);
-    if (stats.isFile()) {
-      const gitFile: string = await FileSystem.readFileAsync(dotGitPath);
-      const match: RegExpMatchArray | null = gitFile.match(/^gitdir: ([^\r\n]+)\r?\n?$/);
-      if (!match) {
-        throw new GitRepositoryError('Invalid .git file: expected a gitdir path');
-      }
-
-      gitDirectory = path.resolve(repoPath, match[1]);
-    } else if (!stats.isDirectory()) {
-      throw new GitRepositoryError('.git is neither a directory nor a gitdir file');
+    const gitFile: string = await FileSystem.readFileAsync(dotGitPath);
+    const match: RegExpMatchArray | null = gitFile.match(/^gitdir: ([^\r\n]+)\r?\n?$/);
+    if (!match) {
+      throw new GitRepositoryError('Invalid .git file: expected a gitdir path');
     }
+
+    const gitDirPath: string = match[1];
+    gitDirectory = path.isAbsolute(gitDirPath) ? gitDirPath : path.resolve(repoPath, gitDirPath);
   } catch (error) {
     if (FileSystem.isNotExistError(error)) {
       throw new GitRepositoryError(".git folder doesn't exist");
     }
 
-    throw error;
+    if (!FileSystem.isDirectoryError(error)) {
+      throw error;
+    }
   }
 
-  const commonDirFile: string | undefined = await readOptionalGitFileAsync(path.join(gitDirectory, 'commondir'));
+  const commonDirFile: string | undefined = await readOptionalGitFileAsync(`${gitDirectory}/commondir`);
   let commonDirectory: string = gitDirectory;
   if (commonDirFile !== undefined) {
     const commonDir: string = commonDirFile.replace(/[\r\n]+$/, '');
@@ -57,7 +55,7 @@ export async function getGitPathsAsync(repoPath: string): Promise<IGitPaths> {
       throw new GitRepositoryError('Invalid Git commondir path');
     }
 
-    commonDirectory = path.resolve(gitDirectory, commonDir);
+    commonDirectory = path.isAbsolute(commonDir) ? commonDir : path.resolve(gitDirectory, commonDir);
     const stats: FileSystemStats = await FileSystem.getStatisticsAsync(commonDirectory);
     if (!stats.isDirectory()) {
       throw new GitRepositoryError('The Git common directory is not a directory');
@@ -103,13 +101,13 @@ export function parseGitHead(headContents: string): string {
 }
 
 export async function readLocalBranchesAsync(commonDirectory: string): Promise<string[]> {
-  const reftable: string | undefined = await readOptionalGitFileAsync(path.join(commonDirectory, 'config'));
+  const reftable: string | undefined = await readOptionalGitFileAsync(`${commonDirectory}/config`);
   if (reftable && /^\s*refStorage\s*=\s*"?reftable"?\s*$/im.test(reftable)) {
     throw new GitRepositoryError('Git reftable reference storage is not supported');
   }
 
   const branches: Set<string> = new Set();
-  const packedRefs: string | undefined = await readOptionalGitFileAsync(path.join(commonDirectory, 'packed-refs'));
+  const packedRefs: string | undefined = await readOptionalGitFileAsync(`${commonDirectory}/packed-refs`);
   if (packedRefs !== undefined) {
     for (const line of packedRefs.split(/\r?\n/)) {
       if (!line || line.startsWith('#') || line.startsWith('^')) {
@@ -148,10 +146,14 @@ export async function readLocalBranchesAsync(commonDirectory: string): Promise<s
     await Async.forEachAsync(entries, async (entry) => {
       const { name } = entry;
       const branch: string = `${prefix}${name}`;
-      const filename: string = path.join(directory, name);
+      const filename: string = `${directory}/${name}`;
+      if (entry.isSymbolicLink()) {
+        throw new GitRepositoryError(`Symbolic links in local branch refs are not supported: ${branch}`);
+      }
+
       if (entry.isDirectory()) {
         await readLooseRefsAsync(filename, `${branch}/`);
-      } else if ((entry.isFile() || entry.isSymbolicLink()) && isValidLocalBranchName(branch)) {
+      } else if (entry.isFile() && isValidLocalBranchName(branch)) {
         const contents: string | undefined = await readOptionalGitFileAsync(filename);
         if (contents === undefined) {
           return;
@@ -167,6 +169,18 @@ export async function readLocalBranchesAsync(commonDirectory: string): Promise<s
     }, { concurrency: 15 });
   }
 
-  await readLooseRefsAsync(path.join(commonDirectory, 'refs', 'heads'), '');
+  const headsDirectory: string = `${commonDirectory}/refs/heads`;
+  try {
+    const stats: FileSystemStats = await FileSystem.getLinkStatisticsAsync(headsDirectory);
+    if (stats.isSymbolicLink()) {
+      throw new GitRepositoryError('Symbolic links in local branch refs are not supported: refs/heads');
+    }
+  } catch (error) {
+    if (!FileSystem.isNotExistError(error)) {
+      throw error;
+    }
+  }
+
+  await readLooseRefsAsync(headsDirectory, '');
   return [...branches].sort();
 }

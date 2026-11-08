@@ -12,9 +12,7 @@ import {
 
 import { LSBranchConfigurationSchemaRepo } from '../../config/LSBranchConfig';
 import { getRepoDataAsync, IGetRepoDataResult } from '../../util/RepoData';
-import { ILSBranchActionBaseOptions, LSBranchActionBase } from './LSBranchActionBase';
-
-export const ADD_ACTION_NAME: string = 'add';
+import { ADD_ACTION_NAME, ILSBranchActionBaseOptions, LSBranchActionBase } from './LSBranchActionBase';
 
 export class AddAction extends LSBranchActionBase {
   readonly #pathParameter: IRequiredCommandLineStringParameter;

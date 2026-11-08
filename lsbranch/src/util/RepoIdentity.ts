@@ -82,7 +82,7 @@ function includeConditionMatches(condition: string, filename: string, gitDirecto
   let pattern: string = condition.slice(ignoreCase ? 'gitdir/i:'.length : 'gitdir:'.length);
   const directoryPattern: boolean = pattern.endsWith('/');
   if (pattern.startsWith('~/')) {
-    pattern = path.join(os.homedir(), pattern.slice(2));
+    pattern = `${os.homedir()}/${pattern.slice(2)}`;
   } else if (pattern.startsWith('./')) {
     pattern = path.resolve(path.dirname(filename), pattern);
   } else if (!path.isAbsolute(pattern)) {
@@ -157,7 +157,7 @@ async function readRemoteUrlsAsync(
           includeConditionMatches(subsection, filename, directory, branch)
         )) {
           const includedPath: string = value.startsWith('~/')
-            ? path.join(os.homedir(), value.slice(2))
+            ? `${os.homedir()}/${value.slice(2)}`
             : path.resolve(path.dirname(filename), value);
           urls.push(...await readRemoteUrlsAsync(includedPath, gitDirectories, branch, stack));
         }
@@ -221,10 +221,10 @@ export async function getRepoIdentityAsync(repoPath: string): Promise<IRepoIdent
     ? canonicalCommonDirectory
     : await FileSystem.getRealPathAsync(gitDirectory);
   const canonicalRepoPath: string = await FileSystem.getRealPathAsync(repoPath);
-  const head: string | undefined = await readOptionalGitFileAsync(path.join(gitDirectory, 'HEAD'));
+  const head: string | undefined = await readOptionalGitFileAsync(`${gitDirectory}/HEAD`);
   const branch: string = head?.startsWith('ref: refs/heads/') ? head.trim().slice('ref: refs/heads/'.length) : '';
   const urls: string[] = await readRemoteUrlsAsync(
-    path.join(canonicalCommonDirectory, 'config'), [gitDirectory, canonicalGitDirectory], branch, new Set()
+    `${canonicalCommonDirectory}/config`, [gitDirectory, canonicalGitDirectory], branch, new Set()
   );
   try {
     return {

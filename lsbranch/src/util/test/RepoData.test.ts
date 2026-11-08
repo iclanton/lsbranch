@@ -4,10 +4,11 @@
 import { randomUUID } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
-import { Executable, FileSystem } from '@rushstack/node-core-library';
+import { Executable, FileSystem, FolderItem } from '@rushstack/node-core-library';
 
 import { LSBranchConfigurationSchemaRepo } from '../../config/LSBranchConfig';
 import { getRepoDataAsync } from '../RepoData';
+import { getGitPathsAsync } from '../GitRepository';
 
 const COMMIT: string = 'a'.repeat(40);
 
@@ -16,13 +17,13 @@ describe(getRepoDataAsync.name, () => {
   let repo: LSBranchConfigurationSchemaRepo;
 
   async function writeFileAsync(filename: string, contents: string): Promise<void> {
-    const fullPath: string = path.join(fixturePath, filename);
+    const fullPath: string = `${fixturePath}/${filename}`;
     await FileSystem.writeFileAsync(fullPath, contents, { ensureFolderExists: true });
   }
 
   beforeEach(async () => {
-    fixturePath = path.join(os.tmpdir(), `lsbranch-refs-test-${randomUUID()}`);
-    repo = { path: path.join(fixturePath, 'repo') };
+    fixturePath = `${os.tmpdir()}/lsbranch-refs-test-${randomUUID()}`;
+    repo = { path: `${fixturePath}/repo` };
     await writeFileAsync('repo/.git/HEAD', 'ref: refs/heads/main\n');
     jest.spyOn(Executable, 'spawn').mockImplementation(() => {
       throw new Error('Git subprocesses must not be launched');
@@ -79,7 +80,7 @@ describe(getRepoDataAsync.name, () => {
   });
 
   it('reads linked-worktree HEAD and branches from its common Git directory', async () => {
-    const worktree: LSBranchConfigurationSchemaRepo = { path: path.join(fixturePath, 'worktree') };
+    const worktree: LSBranchConfigurationSchemaRepo = { path: `${fixturePath}/worktree` };
     await writeFileAsync('worktree/.git', 'gitdir: ../repo/.git/worktrees/linked\n');
     await writeFileAsync('repo/.git/worktrees/linked/HEAD', 'ref: refs/heads/linked\n');
     await writeFileAsync('repo/.git/worktrees/linked/commondir', '../..\n');
@@ -93,13 +94,105 @@ describe(getRepoDataAsync.name, () => {
   });
 
   it('supports a gitdir file without a commondir file', async () => {
-    const checkout: LSBranchConfigurationSchemaRepo = { path: path.join(fixturePath, 'checkout') };
+    const checkout: LSBranchConfigurationSchemaRepo = { path: `${fixturePath}/checkout` };
     await writeFileAsync('checkout/.git', 'gitdir: ../repo/.git\n');
 
     await expect(getRepoDataAsync(checkout, false)).resolves.toEqual({
       repo: checkout,
       data: { checkedOutBranch: 'main' }
     });
+  });
+
+  it('detects a normal .git directory without a statistics call', async () => {
+    const statistics: jest.SpyInstance = jest.spyOn(FileSystem, 'getStatisticsAsync');
+
+    await expect(getGitPathsAsync(repo.path)).resolves.toEqual({
+      gitDirectory: `${repo.path}/.git`,
+      commonDirectory: `${repo.path}/.git`
+    });
+    expect(statistics).not.toHaveBeenCalled();
+  });
+
+  it('preserves absolute gitdir and commondir paths without resolution', async () => {
+    const worktreePath: string = `${fixturePath}/absolute-worktree`;
+    const gitDirectory: string = `${fixturePath}/repo/.git/worktrees/absolute`;
+    const commonDirectory: string = `${fixturePath}/repo/.git`;
+    await writeFileAsync('absolute-worktree/.git', `gitdir: ${gitDirectory}\n`);
+    await writeFileAsync('repo/.git/worktrees/absolute/commondir', `${commonDirectory}\n`);
+    const resolve: jest.SpyInstance = jest.spyOn(path, 'resolve');
+
+    await expect(getGitPathsAsync(worktreePath)).resolves.toEqual({ gitDirectory, commonDirectory });
+    expect(resolve).not.toHaveBeenCalled();
+  });
+
+  it('does not confuse permission errors with a .git directory', async () => {
+    const permissionError: NodeJS.ErrnoException = Object.assign(new Error('Permission denied'), {
+      code: 'EACCES', errno: -13, syscall: 'open'
+    });
+    jest.spyOn(FileSystem, 'readFileAsync').mockRejectedValue(permissionError);
+
+    await expect(getRepoDataAsync(repo, false)).resolves.toEqual({ repo, error: permissionError });
+  });
+
+  it.each<[string, string[]]>([
+    ['feature/*', ['feature/current']],
+    ['feature/**', ['feature/current', 'feature/nested/topic']],
+    ['release-?', ['release-a']],
+    ['{main,release-*}', ['main', 'release-a', 'release-long']],
+    ['@(main|release-a)', ['main', 'release-a']],
+    ['feature/[c]*', ['feature/current']],
+    ['absent*', []]
+  ])('matches the local branch glob %j', async (pattern, matches) => {
+    await writeFileAsync('repo/.git/HEAD', 'ref: refs/heads/feature/current\n');
+    await writeFileAsync('repo/.git/refs/heads/feature/current', `${COMMIT}\n`);
+    await writeFileAsync('repo/.git/refs/heads/main', `${COMMIT}\n`);
+    await writeFileAsync('repo/.git/packed-refs', [
+      `${COMMIT} refs/heads/feature/nested/topic`,
+      `${COMMIT} refs/heads/release-a`,
+      `${COMMIT} refs/heads/release-long`,
+      `${COMMIT} refs/remotes/origin/absent-remote`,
+      ''
+    ].join('\n'));
+
+    await expect(getRepoDataAsync(repo, false, pattern)).resolves.toEqual({
+      repo,
+      data: {
+        checkedOutBranch: 'feature/current',
+        matchingBranches: matches,
+        hasLocalBranch: matches.length > 0,
+        branchIsCheckedOut: matches.includes('feature/current')
+      }
+    });
+  });
+
+  it('does not read a symbolic-link ref target', async () => {
+    await writeFileAsync('repo/.git/refs/heads/link', `${COMMIT}\n`);
+    const headsDirectory: string = `${repo.path}/.git/refs/heads`;
+    const entries: FolderItem[] = await FileSystem.readFolderItemsAsync(headsDirectory);
+    jest.spyOn(entries[0], 'isSymbolicLink').mockReturnValue(true);
+    jest.spyOn(FileSystem, 'readFolderItemsAsync').mockResolvedValue(entries);
+    const readFile: jest.SpyInstance = jest.spyOn(FileSystem, 'readFileAsync');
+
+    await expect(getRepoDataAsync(repo, true)).resolves.toEqual({
+      repo, error: new Error('Symbolic links in local branch refs are not supported: link')
+    });
+    expect(readFile).not.toHaveBeenCalledWith(`${headsDirectory}/link`);
+  });
+
+  it('rejects symbolic-link branch directories before traversing them', async () => {
+    const targetDirectory: string = `${fixturePath}/external-refs`;
+    await FileSystem.ensureFolderAsync(`${repo.path}/.git/refs`);
+    await FileSystem.ensureFolderAsync(targetDirectory);
+    await FileSystem.createSymbolicLinkJunctionAsync({
+      linkTargetPath: targetDirectory,
+      newLinkPath: `${repo.path}/.git/refs/heads`
+    });
+    const readFolder: jest.SpyInstance = jest.spyOn(FileSystem, 'readFolderItemsAsync');
+
+    await expect(getRepoDataAsync(repo, true)).resolves.toEqual({
+      repo, error: new Error('Symbolic links in local branch refs are not supported: refs/heads')
+    });
+    expect(readFolder).not.toHaveBeenCalled();
   });
 
   it.each(['', 'invalid', 'ref: refs/remotes/origin/main\n'])('reports invalid HEAD contents %j', async (head) => {
@@ -110,7 +203,7 @@ describe(getRepoDataAsync.name, () => {
   });
 
   it('reports a missing Git directory per repository', async () => {
-    const missingRepo: LSBranchConfigurationSchemaRepo = { path: path.join(fixturePath, 'missing') };
+    const missingRepo: LSBranchConfigurationSchemaRepo = { path: `${fixturePath}/missing` };
 
     await expect(getRepoDataAsync(missingRepo, true)).resolves.toEqual({
       repo: missingRepo,
@@ -119,7 +212,7 @@ describe(getRepoDataAsync.name, () => {
   });
 
   it('reports a missing HEAD file', async () => {
-    await FileSystem.deleteFileAsync(path.join(repo.path, '.git', 'HEAD'));
+    await FileSystem.deleteFileAsync(`${repo.path}/.git/HEAD`);
 
     await expect(getRepoDataAsync(repo, false)).resolves.toEqual({
       repo,
@@ -128,7 +221,7 @@ describe(getRepoDataAsync.name, () => {
   });
 
   it('reports an invalid gitdir file', async () => {
-    const invalidRepo: LSBranchConfigurationSchemaRepo = { path: path.join(fixturePath, 'invalid') };
+    const invalidRepo: LSBranchConfigurationSchemaRepo = { path: `${fixturePath}/invalid` };
     await writeFileAsync('invalid/.git', 'not a gitdir file');
 
     const result = await getRepoDataAsync(invalidRepo, false);
@@ -140,7 +233,7 @@ describe(getRepoDataAsync.name, () => {
     await writeFileAsync('repo/.git/packed-refs', 'corrupt');
     const packedResult = await getRepoDataAsync(repo, true);
     expect(packedResult).toHaveProperty('error');
-    await FileSystem.deleteFileAsync(path.join(repo.path, '.git', 'packed-refs'));
+    await FileSystem.deleteFileAsync(`${repo.path}/.git/packed-refs`);
     await writeFileAsync('repo/.git/refs/heads/corrupt', 'invalid hash');
     const looseResult = await getRepoDataAsync(repo, true);
     expect(looseResult).toHaveProperty('error');
@@ -155,19 +248,19 @@ describe(getRepoDataAsync.name, () => {
     ].join('\n'));
 
     await expect(getRepoDataAsync(repo, false, 'main')).resolves.toEqual({
-      repo, data: { checkedOutBranch: 'main', hasLocalBranch: true, branchIsCheckedOut: true }
+      repo, data: { checkedOutBranch: 'main', hasLocalBranch: true, branchIsCheckedOut: true, matchingBranches: ['main'] }
     });
     await expect(getRepoDataAsync(repo, false, 'feature/nested')).resolves.toEqual({
-      repo, data: { checkedOutBranch: 'main', hasLocalBranch: true, branchIsCheckedOut: false }
+      repo, data: { checkedOutBranch: 'main', hasLocalBranch: true, branchIsCheckedOut: false, matchingBranches: ['feature/nested'] }
     });
     await expect(getRepoDataAsync(repo, false, 'remote-only')).resolves.toEqual({
-      repo, data: { checkedOutBranch: 'main', hasLocalBranch: false, branchIsCheckedOut: false }
+      repo, data: { checkedOutBranch: 'main', hasLocalBranch: false, branchIsCheckedOut: false, matchingBranches: [] }
     });
   });
 
   it('does not find an unborn HEAD name without a stored branch reference', async () => {
     await expect(getRepoDataAsync(repo, false, 'main')).resolves.toEqual({
-      repo, data: { checkedOutBranch: 'main', hasLocalBranch: false, branchIsCheckedOut: false }
+      repo, data: { checkedOutBranch: 'main', hasLocalBranch: false, branchIsCheckedOut: false, matchingBranches: [] }
     });
   });
 
@@ -175,7 +268,7 @@ describe(getRepoDataAsync.name, () => {
     await writeFileAsync('repo/.git/packed-refs', `${COMMIT} refs/heads/${branch}\n`);
 
     await expect(getRepoDataAsync(repo, false, branch)).resolves.toEqual({
-      repo, data: { checkedOutBranch: 'main', hasLocalBranch: true, branchIsCheckedOut: false }
+      repo, data: { checkedOutBranch: 'main', hasLocalBranch: true, branchIsCheckedOut: false, matchingBranches: [branch] }
     });
   });
 
@@ -196,7 +289,7 @@ describe(getRepoDataAsync.name, () => {
       repo, data: { checkedOutBranch: COMMIT, otherBranches: [COMMIT] }
     });
     await expect(getRepoDataAsync(repo, false, COMMIT)).resolves.toEqual({
-      repo, data: { checkedOutBranch: COMMIT, hasLocalBranch: true, branchIsCheckedOut: false }
+      repo, data: { checkedOutBranch: COMMIT, hasLocalBranch: true, branchIsCheckedOut: false, matchingBranches: [COMMIT] }
     });
   });
 });

@@ -156,15 +156,22 @@ export class LSBranchConfig {
       return false;
     }
 
-    const matches: LSBranchConfigurationSchemaRepo[] = repos.filter((repo) => {
+    const remainingRepos: LSBranchConfigurationSchemaRepo[] = [];
+    let matchCount: number = 0;
+    for (const repo of repos) {
       const { path, alias: repoAlias } = repo;
-      return repoPath !== undefined ? path === repoPath : repoAlias === alias;
-    });
-    if (matches.length !== 1) {
+      if (repoPath !== undefined ? path === repoPath : repoAlias === alias) {
+        matchCount++;
+      } else {
+        remainingRepos.push(repo);
+      }
+    }
+
+    if (matchCount !== 1) {
       const description: string = repoPath !== undefined
         ? `path ${JSON.stringify(repoPath)}`
         : `alias ${JSON.stringify(alias)}`;
-      terminal.writeErrorLine(matches.length === 0
+      terminal.writeErrorLine(matchCount === 0
         ? `No registered repository matches ${description}.`
         : `Multiple registered repositories match ${description}.`);
       return false;
@@ -172,7 +179,7 @@ export class LSBranchConfig {
 
     await this.#updateConfigDataAsync({
       ...configData,
-      repos: repos.filter((repo) => repo !== matches[0])
+      repos: remainingRepos
     });
     return true;
   }

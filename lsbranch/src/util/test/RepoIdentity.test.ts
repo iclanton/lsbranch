@@ -13,14 +13,14 @@ describe(getRepoIdentityAsync.name, () => {
   let repoPath: string;
 
   async function writeConfigAsync(contents: string): Promise<void> {
-    await FileSystem.writeFileAsync(path.join(repoPath, '.git', 'config'), contents);
+    await FileSystem.writeFileAsync(`${repoPath}/.git/config`, contents);
   }
 
   beforeEach(async () => {
-    fixturePath = path.join(os.tmpdir(), `lsbranch-identity-test-${randomUUID()}`);
-    repoPath = path.join(fixturePath, 'repo');
-    await FileSystem.ensureFolderAsync(path.join(repoPath, '.git'));
-    await FileSystem.writeFileAsync(path.join(repoPath, '.git', 'HEAD'), 'ref: refs/heads/feature/nested\n');
+    fixturePath = `${os.tmpdir()}/lsbranch-identity-test-${randomUUID()}`;
+    repoPath = `${fixturePath}/repo`;
+    await FileSystem.ensureFolderAsync(`${repoPath}/.git`);
+    await FileSystem.writeFileAsync(`${repoPath}/.git/HEAD`, 'ref: refs/heads/feature/nested\n');
   });
 
   afterEach(async () => {
@@ -48,9 +48,10 @@ describe(getRepoIdentityAsync.name, () => {
   });
 
   it('resolves relative and file remotes without stripping local .git names', () => {
-    const localRemote: string = path.join(fixturePath, 'bare.git');
+    const localRemote: string = path.resolve(`${fixturePath}/bare.git`);
     expect(normalizeRemoteUrl('../bare.git', repoPath)).toBe(`local:${localRemote}`);
     expect(normalizeRemoteUrl(pathToFileURL(localRemote).href, repoPath)).toBe(`local:${localRemote}`);
+    expect(normalizeRemoteUrl(`${pathToFileURL(localRemote).href}/`, repoPath)).toBe(`local:${localRemote}`);
   });
 
   it('reads multiple, quoted, continued, and legacy remote URL entries', async () => {
@@ -65,14 +66,14 @@ describe(getRepoIdentityAsync.name, () => {
     ].join('\n'));
 
     await expect(getRepoIdentityAsync(repoPath)).resolves.toEqual({
-      commonDirectory: await FileSystem.getRealPathAsync(path.join(repoPath, '.git')),
+      commonDirectory: await FileSystem.getRealPathAsync(`${repoPath}/.git`),
       remoteKeys: ['remote:example.invalid/org/repo', 'remote:example.invalid/org/other']
     });
   });
 
   it('reads relative configuration includes', async () => {
     await writeConfigAsync('[include]\n path = ../included.conf\n');
-    await FileSystem.writeFileAsync(path.join(repoPath, 'included.conf'), '[remote "origin"]\n url = https://example.invalid/shared.git\n');
+    await FileSystem.writeFileAsync(`${repoPath}/included.conf`, '[remote "origin"]\n url = https://example.invalid/shared.git\n');
 
     const { remoteKeys } = await getRepoIdentityAsync(repoPath);
 
@@ -89,7 +90,7 @@ describe(getRepoIdentityAsync.name, () => {
       ' path = ../not-used.conf',
       ''
     ].join('\n'));
-    await FileSystem.writeFileAsync(path.join(repoPath, 'included.conf'), '[remote "origin"]\n url = https://example.invalid/shared.git\n');
+    await FileSystem.writeFileAsync(`${repoPath}/included.conf`, '[remote "origin"]\n url = https://example.invalid/shared.git\n');
 
     const { remoteKeys } = await getRepoIdentityAsync(repoPath);
 
@@ -105,7 +106,7 @@ describe(getRepoIdentityAsync.name, () => {
       ' path = ../included.conf',
       ''
     ].join('\n'));
-    await FileSystem.writeFileAsync(path.join(repoPath, 'included.conf'), '[remote "origin"]\n url = https://example.invalid/shared.git\n');
+    await FileSystem.writeFileAsync(`${repoPath}/included.conf`, '[remote "origin"]\n url = https://example.invalid/shared.git\n');
 
     const { remoteKeys } = await getRepoIdentityAsync(repoPath);
 
@@ -114,7 +115,7 @@ describe(getRepoIdentityAsync.name, () => {
 
   it('reports cyclic includes rather than guessing remote identity', async () => {
     await writeConfigAsync('[include]\n path = ../cycle.conf\n');
-    await FileSystem.writeFileAsync(path.join(repoPath, 'cycle.conf'), '[include]\n path = .git/config\n');
+    await FileSystem.writeFileAsync(`${repoPath}/cycle.conf`, '[include]\n path = .git/config\n');
 
     await expect(getRepoIdentityAsync(repoPath)).rejects.toThrow('cyclic');
   });
@@ -138,8 +139,8 @@ describe(getRepoIdentityAsync.name, () => {
   });
 
   it('resolves local remotes and config includes consistently through directory aliases', async () => {
-    const aliasPath: string = path.join(fixturePath, 'nested', 'alias');
-    await FileSystem.ensureFolderAsync(path.dirname(aliasPath));
+    const aliasPath: string = `${fixturePath}/nested/alias`;
+    await FileSystem.ensureFolderAsync(`${fixturePath}/nested`);
     await FileSystem.createSymbolicLinkJunctionAsync({ linkTargetPath: repoPath, newLinkPath: aliasPath });
     await writeConfigAsync([
       '[remote "local"]',
@@ -148,20 +149,20 @@ describe(getRepoIdentityAsync.name, () => {
       ' path = ../included.conf',
       ''
     ].join('\n'));
-    await FileSystem.writeFileAsync(path.join(repoPath, 'included.conf'), '[remote "origin"]\n url = https://example.invalid/shared.git\n');
+    await FileSystem.writeFileAsync(`${repoPath}/included.conf`, '[remote "origin"]\n url = https://example.invalid/shared.git\n');
     const identity = await getRepoIdentityAsync(repoPath);
 
     await expect(getRepoIdentityAsync(aliasPath)).resolves.toEqual(identity);
-    expect(identity.remoteKeys).toContain(`local:${path.join(fixturePath, 'bare.git')}`);
+    expect(identity.remoteKeys).toContain(`local:${path.resolve(`${fixturePath}/bare.git`)}`);
   });
 
   it('uses the canonical common directory for linked worktrees', async () => {
-    const worktreePath: string = path.join(fixturePath, 'worktree');
+    const worktreePath: string = `${fixturePath}/worktree`;
     await FileSystem.ensureFolderAsync(worktreePath);
-    await FileSystem.ensureFolderAsync(path.join(repoPath, '.git', 'worktrees', 'linked'));
-    await FileSystem.writeFileAsync(path.join(worktreePath, '.git'), 'gitdir: ../repo/.git/worktrees/linked\n');
-    await FileSystem.writeFileAsync(path.join(repoPath, '.git', 'worktrees', 'linked', 'commondir'), '../..\n');
-    await FileSystem.writeFileAsync(path.join(repoPath, '.git', 'worktrees', 'linked', 'HEAD'), 'ref: refs/heads/linked\n');
+    await FileSystem.ensureFolderAsync(`${repoPath}/.git/worktrees/linked`);
+    await FileSystem.writeFileAsync(`${worktreePath}/.git`, 'gitdir: ../repo/.git/worktrees/linked\n');
+    await FileSystem.writeFileAsync(`${repoPath}/.git/worktrees/linked/commondir`, '../..\n');
+    await FileSystem.writeFileAsync(`${repoPath}/.git/worktrees/linked/HEAD`, 'ref: refs/heads/linked\n');
     await writeConfigAsync('[remote "origin"]\n url = https://example.invalid/shared.git\n');
 
     const identity = await getRepoIdentityAsync(repoPath);

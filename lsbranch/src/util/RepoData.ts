@@ -1,8 +1,8 @@
 // Copyright (c) Ian Clanton-Thuon. All rights reserved. Licensed under the MIT license.
 // See LICENSE in the project root for license information.
 
-import path from 'node:path';
 import { FileSystem } from '@rushstack/node-core-library';
+import { Minimatch } from 'minimatch';
 
 import { LSBranchConfigurationSchemaRepo } from '../config/LSBranchConfig';
 import {
@@ -18,6 +18,7 @@ export interface IRepoData {
   otherBranches?: string[];
   hasLocalBranch?: boolean;
   branchIsCheckedOut?: boolean;
+  matchingBranches?: string[];
 }
 
 interface IGetRepoDataResultBase {
@@ -37,12 +38,12 @@ export type IGetRepoDataResult = IGetRepoDataErrorResult | IGetRepoDataSuccessRe
 export async function getRepoDataAsync(
   repo: LSBranchConfigurationSchemaRepo,
   getAllBranches: boolean,
-  branchName?: string
+  branchPattern?: string
 ): Promise<IGetRepoDataResult> {
   const { path: repoPath } = repo;
   try {
     const { gitDirectory, commonDirectory } = await getGitPathsAsync(repoPath);
-    const head: string | undefined = await readOptionalGitFileAsync(path.join(gitDirectory, 'HEAD'));
+    const head: string | undefined = await readOptionalGitFileAsync(`${gitDirectory}/HEAD`);
     if (head === undefined) {
       throw new GitRepositoryError(".git/HEAD file doesn't exist");
     }
@@ -50,15 +51,18 @@ export async function getRepoDataAsync(
     const checkedOutBranch: string = parseGitHead(head);
     const hasBranchHead: boolean = head.trim().startsWith('ref: refs/heads/');
     const data: IRepoData = { checkedOutBranch };
-    if (getAllBranches || branchName !== undefined) {
+    if (getAllBranches || branchPattern !== undefined) {
       const branches: string[] = await readLocalBranchesAsync(commonDirectory);
       if (getAllBranches) {
         data.otherBranches = branches.filter((branch) => !hasBranchHead || branch !== checkedOutBranch);
       }
 
-      if (branchName !== undefined) {
-        data.hasLocalBranch = branches.includes(branchName);
-        data.branchIsCheckedOut = data.hasLocalBranch && hasBranchHead && checkedOutBranch === branchName;
+      if (branchPattern !== undefined) {
+        const matcher: Minimatch = new Minimatch(branchPattern, { nonegate: true, nocomment: true });
+        const matchingBranches: string[] = branches.filter((branch) => matcher.match(branch));
+        data.matchingBranches = matchingBranches;
+        data.hasLocalBranch = matchingBranches.length > 0;
+        data.branchIsCheckedOut = hasBranchHead && matchingBranches.includes(checkedOutBranch);
       }
     }
 

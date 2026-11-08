@@ -10,6 +10,8 @@ import { UpgradeMessagePrinter } from '../../util/UpgradeMessagePrinter';
 import { getRepoDataAsync, IGetRepoDataResult } from '../../util/RepoData';
 import { LSBRANCH_TOOL_FILENAME } from '../LSBranchCommandLineParser';
 
+export const ADD_ACTION_NAME: string = 'add';
+
 export interface ILSBranchActionBaseOptions {
   terminal: Terminal;
   config: LSBranchConfig;
@@ -45,7 +47,7 @@ export abstract class LSBranchActionBase extends CommandLineAction {
     const { _config: config, _terminal: terminal } = this;
     if (!(await config.getConfigExistsAsync())) {
       if (config.isDefaultConfigPath) {
-        terminal.writeErrorLine(`No repos have been configured. Add a repo with "${LSBRANCH_TOOL_FILENAME} add"`);
+        terminal.writeErrorLine(`No repos have been configured. Add a repo with "${LSBRANCH_TOOL_FILENAME} ${ADD_ACTION_NAME}"`);
       } else {
         terminal.writeErrorLine(`Config file does not exist: ${config.configPath}`);
       }

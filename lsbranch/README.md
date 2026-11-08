@@ -32,9 +32,9 @@ Repo 2                feature/branch
 
 Thats it!
 
-Use `lsbranch --all` to list all local branches, with checked-out branches highlighted in green. Use `lsbranch --other` to list only branches not checked out in each individual clone; clones with no other branches have no text rows. `--all` and `--other` are mutually exclusive. Both flags support `--json`.
+Use `lsbranch --all` to list all local branches, with checked-out branches highlighted in green. This flag also supports `--json`.
 
-Repository lookups read Git metadata directly from the filesystem, including loose and packed branch refs and linked-worktree Git directories. No Git subprocesses are launched. Unsupported reftable storage and unreadable/malformed metadata are reported individually without hiding other clones' results.
+Repository lookups read Git metadata directly from the filesystem, including loose and packed branch refs and linked-worktree Git directories. No Git subprocesses are launched. Unsupported reftable storage, symbolic links in local branch refs, and unreadable/malformed metadata are reported individually without hiding other clones' results.
 
 Repository lookups run with a maximum concurrency of 15. The existing once-a-day npm update check is retained and can occasionally add network latency to text-mode commands.
 
@@ -42,7 +42,9 @@ Configuration is managed by `lsbranch add`, which resolves repository paths befo
 
 ### Finding a branch
 
-Run `lsbranch find --branch feature/name` to find every registered clone containing that exact local branch, including clones where it is not checked out. Matching checked-out branches are green in text output. Use `--json` for matching clones, their `branchIsCheckedOut` status, and individual repository errors; branches found only in remote-tracking refs do not match. A search with no matches succeeds with an empty JSON array or a text message.
+Run `lsbranch find --branch feature/name` to find every registered clone containing that local branch, including clones where it is not checked out. Shell-style globs are also supported: `lsbranch find --branch 'feature/**'`, `--branch 'release-?'`, or `--branch '{main,develop}'`. Patterns match whole branch names; `*` does not cross `/`, while `**` does. Quote patterns to prevent shell expansion. Grep-style regular expressions are not used.
+
+Text output lists every matching branch per clone and highlights matching checked-out branches in green. Use `--json` for matching clones, their `matchingBranches` and `branchIsCheckedOut` status, and individual repository errors; branches found only in remote-tracking refs do not match. A search with no matches succeeds with an empty JSON array or a text message.
 
 ### Removing a clone
 
