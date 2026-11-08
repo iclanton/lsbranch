@@ -13,9 +13,9 @@ import { ILSBranchActionBaseOptions, LSBranchActionBase } from './LSBranchAction
 export const ADD_ACTION_NAME: string = 'add';
 
 export class AddAction extends LSBranchActionBase {
-  private readonly _pathParameter: CommandLineStringParameter;
-  private readonly _aliasParameter: CommandLineStringParameter;
-  private readonly _noValidate: CommandLineFlagParameter;
+  readonly #pathParameter: CommandLineStringParameter;
+  readonly #aliasParameter: CommandLineStringParameter;
+  readonly #noValidate: CommandLineFlagParameter;
 
   protected override readonly _outputIsMachineReadable: boolean = false;
 
@@ -26,20 +26,20 @@ export class AddAction extends LSBranchActionBase {
       documentation: ''
     });
 
-    this._pathParameter = this.defineStringParameter({
+    this.#pathParameter = this.defineStringParameter({
       parameterLongName: '--path',
       argumentName: 'REPO_PATH',
       description: 'The path to the repo root',
       required: true
     });
 
-    this._aliasParameter = this.defineStringParameter({
+    this.#aliasParameter = this.defineStringParameter({
       parameterLongName: '--alias',
       argumentName: 'ALIAS',
       description: "The repo's alias"
     });
 
-    this._noValidate = this.defineFlagParameter({
+    this.#noValidate = this.defineFlagParameter({
       parameterLongName: '--no-validate',
       description: 'If specified, do not ensure that the repo being added exists and is valid.'
     });
@@ -55,20 +55,20 @@ export class AddAction extends LSBranchActionBase {
       }
     }
 
-    const resolvedPath: string = path.resolve(this._pathParameter.value!);
+    const resolvedPath: string = path.resolve(this.#pathParameter.value!);
     const configRepo: LSBranchConfigurationSchemaRepo = {
       path: resolvedPath,
-      alias: this._aliasParameter.value
+      alias: this.#aliasParameter.value
     };
 
-    if (!this._noValidate.value) {
+    if (!this.#noValidate.value) {
       const { error: getRepoDataError } = (await getRepoDataAsync(
         configRepo,
         false
       )) as IGetRepoDataErrorResult;
       if (getRepoDataError) {
         this._terminal.writeErrorLine(`Specified repo path is not valid: ${getRepoDataError.message}`);
-        this._terminal.writeErrorLine(`If this is expected, provide the "${this._noValidate.longName}" flag`);
+        this._terminal.writeErrorLine(`If this is expected, provide the "${this.#noValidate.longName}" flag`);
         throw new AlreadyReportedError();
       }
     }
