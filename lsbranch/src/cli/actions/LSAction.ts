@@ -5,7 +5,8 @@ import { AlreadyReportedError } from '@rushstack/node-core-library';
 import { CommandLineFlagParameter } from '@rushstack/ts-command-line';
 
 import { IGetRepoDataResult } from '../../util/RepoData';
-import { BranchDisplayMode, printRepoDataAsTable } from '../../util/RepoDataPrinter';
+import { BranchDisplayMode, printRepoGroupsAsTable } from '../../util/RepoDataPrinter';
+import { groupRepoResultsAsync } from '../../util/RepoGrouping';
 import { ILSBranchActionBaseOptions, LSBranchActionBase } from './LSBranchActionBase';
 
 export class LSAction extends LSBranchActionBase {
@@ -45,9 +46,11 @@ export class LSAction extends LSBranchActionBase {
 
     const mode: BranchDisplayMode = this.#otherFlag.value ? 'other' : this.#allFlag.value ? 'all' : 'current';
     const results: IGetRepoDataResult[] = await this._getReposDataAsync(mode !== 'current');
+    const groups: IGetRepoDataResult[][] = await groupRepoResultsAsync(results, terminal);
+    const sortedResults: IGetRepoDataResult[] = groups.flat();
     if (this.#jsonFlag.value) {
       if (mode === 'other') {
-        terminal.writeLine(JSON.stringify(results.map((result) => {
+        terminal.writeLine(JSON.stringify(sortedResults.map((result) => {
           if ('error' in result) {
             return result;
           }
@@ -56,10 +59,10 @@ export class LSAction extends LSBranchActionBase {
           return { repo, data: { otherBranches } };
         })));
       } else {
-        terminal.writeLine(JSON.stringify(results));
+        terminal.writeLine(JSON.stringify(sortedResults));
       }
     } else {
-      printRepoDataAsTable(terminal, results, mode);
+      printRepoGroupsAsTable(terminal, groups, mode);
     }
   }
 }

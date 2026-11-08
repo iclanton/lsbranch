@@ -1,10 +1,10 @@
 // Copyright (c) Ian Clanton-Thuon. All rights reserved. Licensed under the MIT license.
 // See LICENSE in the project root for license information.
 
-import fs from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
-import { Executable } from '@rushstack/node-core-library';
+import { Executable, FileSystem } from '@rushstack/node-core-library';
 
 import { LSBranchConfigurationSchemaRepo } from '../../config/LSBranchConfig';
 import { getRepoDataAsync } from '../RepoData';
@@ -17,12 +17,11 @@ describe(getRepoDataAsync.name, () => {
 
   async function writeFileAsync(filename: string, contents: string): Promise<void> {
     const fullPath: string = path.join(fixturePath, filename);
-    await fs.mkdir(path.dirname(fullPath), { recursive: true });
-    await fs.writeFile(fullPath, contents);
+    await FileSystem.writeFileAsync(fullPath, contents, { ensureFolderExists: true });
   }
 
   beforeEach(async () => {
-    fixturePath = await fs.mkdtemp(path.join(os.tmpdir(), 'lsbranch-refs-test-'));
+    fixturePath = path.join(os.tmpdir(), `lsbranch-refs-test-${randomUUID()}`);
     repo = { path: path.join(fixturePath, 'repo') };
     await writeFileAsync('repo/.git/HEAD', 'ref: refs/heads/main\n');
     jest.spyOn(Executable, 'spawn').mockImplementation(() => {
@@ -32,7 +31,7 @@ describe(getRepoDataAsync.name, () => {
 
   afterEach(async () => {
     jest.restoreAllMocks();
-    await fs.rm(fixturePath, { recursive: true });
+    await FileSystem.deleteFolderAsync(fixturePath);
   });
 
   it('reads the checked-out branch without reading other references', async () => {
@@ -120,7 +119,7 @@ describe(getRepoDataAsync.name, () => {
   });
 
   it('reports a missing HEAD file', async () => {
-    await fs.unlink(path.join(repo.path, '.git', 'HEAD'));
+    await FileSystem.deleteFileAsync(path.join(repo.path, '.git', 'HEAD'));
 
     await expect(getRepoDataAsync(repo, false)).resolves.toEqual({
       repo,
@@ -141,7 +140,7 @@ describe(getRepoDataAsync.name, () => {
     await writeFileAsync('repo/.git/packed-refs', 'corrupt');
     const packedResult = await getRepoDataAsync(repo, true);
     expect(packedResult).toHaveProperty('error');
-    await fs.unlink(path.join(repo.path, '.git', 'packed-refs'));
+    await FileSystem.deleteFileAsync(path.join(repo.path, '.git', 'packed-refs'));
     await writeFileAsync('repo/.git/refs/heads/corrupt', 'invalid hash');
     const looseResult = await getRepoDataAsync(repo, true);
     expect(looseResult).toHaveProperty('error');
@@ -156,19 +155,27 @@ describe(getRepoDataAsync.name, () => {
     ].join('\n'));
 
     await expect(getRepoDataAsync(repo, false, 'main')).resolves.toEqual({
-      repo, data: { checkedOutBranch: 'main', hasLocalBranch: true }
+      repo, data: { checkedOutBranch: 'main', hasLocalBranch: true, branchIsCheckedOut: true }
     });
     await expect(getRepoDataAsync(repo, false, 'feature/nested')).resolves.toEqual({
-      repo, data: { checkedOutBranch: 'main', hasLocalBranch: true }
+      repo, data: { checkedOutBranch: 'main', hasLocalBranch: true, branchIsCheckedOut: false }
     });
     await expect(getRepoDataAsync(repo, false, 'remote-only')).resolves.toEqual({
-      repo, data: { checkedOutBranch: 'main', hasLocalBranch: false }
+      repo, data: { checkedOutBranch: 'main', hasLocalBranch: false, branchIsCheckedOut: false }
     });
   });
 
   it('does not find an unborn HEAD name without a stored branch reference', async () => {
     await expect(getRepoDataAsync(repo, false, 'main')).resolves.toEqual({
-      repo, data: { checkedOutBranch: 'main', hasLocalBranch: false }
+      repo, data: { checkedOutBranch: 'main', hasLocalBranch: false, branchIsCheckedOut: false }
+    });
+  });
+
+  it.each(['closing]', '@', 'foo./bar', '-name', 'HEAD'])('accepts valid stored local ref name %j', async (branch) => {
+    await writeFileAsync('repo/.git/packed-refs', `${COMMIT} refs/heads/${branch}\n`);
+
+    await expect(getRepoDataAsync(repo, false, branch)).resolves.toEqual({
+      repo, data: { checkedOutBranch: 'main', hasLocalBranch: true, branchIsCheckedOut: false }
     });
   });
 
@@ -178,6 +185,18 @@ describe(getRepoDataAsync.name, () => {
     await expect(getRepoDataAsync(repo, true)).resolves.toEqual({
       repo,
       error: new Error('Git reftable reference storage is not supported')
+    });
+  });
+
+  it('does not confuse a SHA-shaped local branch with a detached HEAD', async () => {
+    await writeFileAsync('repo/.git/HEAD', `${COMMIT}\n`);
+    await writeFileAsync(`repo/.git/refs/heads/${COMMIT}`, `${COMMIT}\n`);
+
+    await expect(getRepoDataAsync(repo, true)).resolves.toEqual({
+      repo, data: { checkedOutBranch: COMMIT, otherBranches: [COMMIT] }
+    });
+    await expect(getRepoDataAsync(repo, false, COMMIT)).resolves.toEqual({
+      repo, data: { checkedOutBranch: COMMIT, hasLocalBranch: true, branchIsCheckedOut: false }
     });
   });
 });

@@ -1,0 +1,19 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`groupRepoResultsAsync warns about a bridging clone independent of input order, reversed=false: terminal output 1`] = `
+Array [
+  "[warning] [yellow]Ambiguous repository grouping: clone \\"Bridge\\" connects otherwise separate repository groups.[default][n]",
+]
+`;
+
+exports[`groupRepoResultsAsync warns about a bridging clone independent of input order, reversed=true: terminal output 1`] = `
+Array [
+  "[warning] [yellow]Ambiguous repository grouping: clone \\"Bridge\\" connects otherwise separate repository groups.[default][n]",
+]
+`;
+
+exports[`groupRepoResultsAsync warns and preserves branch results when identity metadata is uncertain: terminal output 1`] = `
+Array [
+  "[warning] [yellow]Cannot determine repository group for \\"Beta\\": Unsupported include condition[default][n]",
+]
+`;

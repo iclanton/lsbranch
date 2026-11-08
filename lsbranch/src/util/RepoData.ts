@@ -17,6 +17,7 @@ export interface IRepoData {
   checkedOutBranch: string;
   otherBranches?: string[];
   hasLocalBranch?: boolean;
+  branchIsCheckedOut?: boolean;
 }
 
 interface IGetRepoDataResultBase {
@@ -47,15 +48,17 @@ export async function getRepoDataAsync(
     }
 
     const checkedOutBranch: string = parseGitHead(head);
+    const hasBranchHead: boolean = head.trim().startsWith('ref: refs/heads/');
     const data: IRepoData = { checkedOutBranch };
     if (getAllBranches || branchName !== undefined) {
       const branches: string[] = await readLocalBranchesAsync(commonDirectory);
       if (getAllBranches) {
-        data.otherBranches = branches.filter((branch) => branch !== checkedOutBranch);
+        data.otherBranches = branches.filter((branch) => !hasBranchHead || branch !== checkedOutBranch);
       }
 
       if (branchName !== undefined) {
         data.hasLocalBranch = branches.includes(branchName);
+        data.branchIsCheckedOut = data.hasLocalBranch && hasBranchHead && checkedOutBranch === branchName;
       }
     }
 

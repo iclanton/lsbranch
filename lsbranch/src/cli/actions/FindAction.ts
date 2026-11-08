@@ -6,7 +6,8 @@ import { CommandLineFlagParameter, IRequiredCommandLineStringParameter } from '@
 
 import { isValidLocalBranchName } from '../../util/GitRepository';
 import { IGetRepoDataResult } from '../../util/RepoData';
-import { printRepoDataAsTable } from '../../util/RepoDataPrinter';
+import { printRepoGroupsAsTable } from '../../util/RepoDataPrinter';
+import { groupRepoResultsAsync } from '../../util/RepoGrouping';
 import { ILSBranchActionBaseOptions, LSBranchActionBase } from './LSBranchActionBase';
 
 export class FindAction extends LSBranchActionBase {
@@ -45,15 +46,16 @@ export class FindAction extends LSBranchActionBase {
     }
 
     const results: IGetRepoDataResult[] = await this._getReposDataAsync(false, branch);
-    const matches: IGetRepoDataResult[] = results.filter((result) =>
-      'error' in result || result.data.hasLocalBranch
-    );
+    const groups: IGetRepoDataResult[][] = (await groupRepoResultsAsync(results, terminal))
+      .map((group) => group.filter((result) => 'error' in result || result.data.hasLocalBranch))
+      .filter((group) => group.length > 0);
+    const matches: IGetRepoDataResult[] = groups.flat();
     if (this.#jsonFlag.value) {
       terminal.writeLine(JSON.stringify(matches));
     } else if (matches.length === 0) {
       terminal.writeLine(`No registered clones have local branch "${branch}".`);
     } else {
-      printRepoDataAsTable(terminal, matches, 'current', branch);
+      printRepoGroupsAsTable(terminal, groups, 'current', branch);
     }
   }
 }

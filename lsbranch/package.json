@@ -39,6 +39,7 @@
     "@rushstack/node-core-library": "5.25.2",
     "@rushstack/terminal": "0.24.8",
     "@rushstack/ts-command-line": "5.3.18",
+    "minimatch": "^10.2.6",
     "semver": "^7.7.2"
   }
 }

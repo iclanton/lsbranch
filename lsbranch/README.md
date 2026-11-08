@@ -34,19 +34,27 @@ Thats it!
 
 Use `lsbranch --all` to list all local branches, with checked-out branches highlighted in green. Use `lsbranch --other` to list only branches not checked out in each individual clone; clones with no other branches have no text rows. `--all` and `--other` are mutually exclusive. Both flags support `--json`.
 
-Repository lookups read Git metadata directly from the filesystem, including loose and packed branch refs and linked-worktree Git directories. No Git subprocesses are launched. Unsupported reftable storage and unreadable/corrupt repositories are reported individually without hiding other clones' results.
+Repository lookups read Git metadata directly from the filesystem, including loose and packed branch refs and linked-worktree Git directories. No Git subprocesses are launched. Unsupported reftable storage and unreadable/malformed metadata are reported individually without hiding other clones' results.
 
-Repository lookups run with a maximum concurrency of 15. Results remain in configuration order. The existing once-a-day npm update check is retained and can occasionally add network latency to text-mode commands.
+Repository lookups run with a maximum concurrency of 15. The existing once-a-day npm update check is retained and can occasionally add network latency to text-mode commands.
 
 Configuration is managed by `lsbranch add`, which resolves repository paths before saving them. Stored repository paths must be non-empty and absolute for the current operating system.
 
 ### Finding a branch
 
-Run `lsbranch find --branch feature/name` to find every registered clone containing that exact local branch, including clones where it is not checked out. Matching checked-out branches are green in text output. Use `--json` for matching clones and individual repository errors; branches found only in remote-tracking refs do not match. A search with no matches succeeds with an empty JSON array or a text message.
+Run `lsbranch find --branch feature/name` to find every registered clone containing that exact local branch, including clones where it is not checked out. Matching checked-out branches are green in text output. Use `--json` for matching clones, their `branchIsCheckedOut` status, and individual repository errors; branches found only in remote-tracking refs do not match. A search with no matches succeeds with an empty JSON array or a text message.
 
 ### Removing a clone
 
 Run `lsbranch remove --alias Repo1` or `lsbranch remove --path /path/to/clone` to unregister exactly one clone. Relative path arguments are resolved before matching. Supply exactly one selector; missing or ambiguous matches are errors. This only updates configuration and never deletes the clone's files.
+
+### Repository groups
+
+Listing and finding group clones that share a canonical Git common directory or at least one normalized remote URL. Common HTTPS, SSH, SCP-style, and Git URLs are compared by host and repository path, ignoring credentials, default transport ports, and an optional `.git` suffix. Local remotes are resolved relative to their clone. This is a heuristic, not a universal repository identifier.
+
+Aliases sort alphabetically within each group, with paths used when there is no alias. Groups sort by their first alias/path. Text output has blank lines between groups; JSON stays a flat array in the same grouped order, with warnings sent to stderr.
+
+A clone connecting otherwise separate repository groups produces an ambiguity warning. Git config includes, `gitdir`/`gitdir/i`, and `onbranch` conditions are supported. Unsupported include conditions, malformed configuration, and unreadable identity metadata produce a warning and leave that clone ungrouped rather than guessing its identity.
 
 ## Development
 

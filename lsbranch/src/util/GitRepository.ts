@@ -1,10 +1,10 @@
 // Copyright (c) Ian Clanton-Thuon. All rights reserved. Licensed under the MIT license.
 // See LICENSE in the project root for license information.
 
-import fs from 'node:fs/promises';
-import type { Dirent, Stats } from 'node:fs';
 import path from 'node:path';
-import { Async, FileSystem } from '@rushstack/node-core-library';
+import { Async, FileSystem, FileSystemStats, FolderItem } from '@rushstack/node-core-library';
+
+const INVALID_BRANCH_CHARACTERS: ReadonlySet<string> = new Set(['~', '^', ':', '?', '*', '[', '\\']);
 
 export interface IGitPaths {
   gitDirectory: string;
@@ -29,7 +29,7 @@ export async function getGitPathsAsync(repoPath: string): Promise<IGitPaths> {
   const dotGitPath: string = path.join(repoPath, '.git');
   let gitDirectory: string = dotGitPath;
   try {
-    const stats: Stats = await fs.stat(dotGitPath);
+    const stats: FileSystemStats = await FileSystem.getStatisticsAsync(dotGitPath);
     if (stats.isFile()) {
       const gitFile: string = await FileSystem.readFileAsync(dotGitPath);
       const match: RegExpMatchArray | null = gitFile.match(/^gitdir: ([^\r\n]+)\r?\n?$/);
@@ -52,13 +52,13 @@ export async function getGitPathsAsync(repoPath: string): Promise<IGitPaths> {
   const commonDirFile: string | undefined = await readOptionalGitFileAsync(path.join(gitDirectory, 'commondir'));
   let commonDirectory: string = gitDirectory;
   if (commonDirFile !== undefined) {
-    const commonDir: string = commonDirFile.trim();
-    if (!commonDir) {
-      throw new GitRepositoryError('The Git commondir file is empty');
+    const commonDir: string = commonDirFile.replace(/[\r\n]+$/, '');
+    if (!commonDir || /[\r\n]/.test(commonDir)) {
+      throw new GitRepositoryError('Invalid Git commondir path');
     }
 
     commonDirectory = path.resolve(gitDirectory, commonDir);
-    const stats: Stats = await fs.stat(commonDirectory);
+    const stats: FileSystemStats = await FileSystem.getStatisticsAsync(commonDirectory);
     if (!stats.isDirectory()) {
       throw new GitRepositoryError('The Git common directory is not a directory');
     }
@@ -70,19 +70,17 @@ export async function getGitPathsAsync(repoPath: string): Promise<IGitPaths> {
 export function isValidLocalBranchName(branch: string): boolean {
   for (let index: number = 0; index < branch.length; index++) {
     const characterCode: number = branch.charCodeAt(index);
-    if (characterCode <= 32 || characterCode === 127) {
+    if (characterCode <= 32 || characterCode === 127 || INVALID_BRANCH_CHARACTERS.has(branch[index])) {
       return false;
     }
   }
 
   return (
     branch.length > 0 &&
-    branch !== '@' &&
-    !branch.startsWith('-') &&
+    !branch.endsWith('.') &&
     !branch.includes('..') &&
     !branch.includes('@{') &&
-    !/[~^:?*[\]\\]/.test(branch) &&
-    branch.split('/').every((part) => part.length > 0 && !part.startsWith('.') && !part.endsWith('.') && !part.endsWith('.lock'))
+    branch.split('/').every((part) => part.length > 0 && !part.startsWith('.') && !part.endsWith('.lock'))
   );
 }
 
@@ -136,9 +134,9 @@ export async function readLocalBranchesAsync(commonDirectory: string): Promise<s
   }
 
   async function readLooseRefsAsync(directory: string, prefix: string): Promise<void> {
-    let entries: Dirent[];
+    let entries: FolderItem[];
     try {
-      entries = await fs.readdir(directory, { withFileTypes: true });
+      entries = await FileSystem.readFolderItemsAsync(directory);
     } catch (error) {
       if (FileSystem.isNotExistError(error)) {
         return;

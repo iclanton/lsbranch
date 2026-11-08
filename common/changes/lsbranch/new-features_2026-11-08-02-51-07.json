@@ -19,6 +19,11 @@
       "comment": "Add remove --path or --alias to unregister a clone without deleting its files.",
       "type": "minor",
       "packageName": "lsbranch"
+    },
+    {
+      "comment": "Group clones by common Git directory or matching remote URLs, sort aliases alphabetically, and warn about ambiguous grouping.",
+      "type": "minor",
+      "packageName": "lsbranch"
     }
   ],
   "packageName": "lsbranch"
