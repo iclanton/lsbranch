@@ -2,10 +2,12 @@
 // See LICENSE in the project root for license information.
 
 import { ChildProcess } from 'node:child_process';
-import { Executable, IWaitForExitResult } from '@rushstack/node-core-library';
+import { PassThrough } from 'node:stream';
+import path from 'node:path';
+import { Executable, FileSystem, IWaitForExitResult } from '@rushstack/node-core-library';
 
 import { LSBranchConfigurationSchemaRepo } from '../../config/LSBranchConfig';
-import { getRepoDataAsync } from '../RepoData';
+import { getRepoDataAsync, IGetRepoDataResult } from '../RepoData';
 
 describe(getRepoDataAsync.name, () => {
   const repo: LSBranchConfigurationSchemaRepo = { path: '/repo' };
@@ -58,5 +60,44 @@ describe(getRepoDataAsync.name, () => {
       repo,
       data: { checkedOutBranch: 'feature/nested', otherBranches: ['main', 'other'] }
     });
+  });
+
+  it.each<[number | null, string | null, string, string]>([
+    [
+      128,
+      null,
+      'not a git repository',
+      'git branch failed with exit code 128: not a git repository'
+    ],
+    [null, 'SIGTERM', '', 'git branch terminated by signal SIGTERM']
+  ])(
+    'handles exit code %s and signal %s using the real wait helper',
+    async (exitCode, signal, stderrText, message) => {
+      const stdout: PassThrough = new PassThrough();
+      const stderr: PassThrough = new PassThrough();
+      const childProcess: ChildProcess = Object.assign(new ChildProcess(), { stdout, stderr });
+      jest.spyOn(Executable, 'spawn').mockReturnValue(childProcess);
+
+      const resultPromise: Promise<IGetRepoDataResult> = getRepoDataAsync(repo, true);
+      stdout.end();
+      stderr.end(stderrText);
+      childProcess.emit('close', exitCode, signal);
+
+      await expect(resultPromise).resolves.toEqual({ repo, error: new Error(message) });
+    }
+  );
+
+  it('reads the expected HEAD file for an absolute repository path', async () => {
+    const repoPath: string = path.resolve('repo');
+    const configuredRepo: LSBranchConfigurationSchemaRepo = { path: repoPath };
+    const readHead: jest.SpyInstance = jest
+      .spyOn(FileSystem, 'readFileAsync')
+      .mockResolvedValue('ref: refs/heads/main\n');
+
+    await expect(getRepoDataAsync(configuredRepo, false)).resolves.toEqual({
+      repo: configuredRepo,
+      data: { checkedOutBranch: 'main' }
+    });
+    expect(readHead).toHaveBeenCalledWith(`${repoPath}/.git/HEAD`);
   });
 });

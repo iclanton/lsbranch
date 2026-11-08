@@ -1,7 +1,8 @@
 // Copyright (c) Ian Clanton-Thuon. All rights reserved. Licensed under the MIT license.
 // See LICENSE in the project root for license information.
 
-import { JsonFile } from '@rushstack/node-core-library';
+import path from 'node:path';
+import { FileSystem, JsonFile } from '@rushstack/node-core-library';
 import { StringBufferTerminalProvider, Terminal } from '@rushstack/terminal';
 
 import { LSBranchConfig, LSBranchConfigurationSchemaRepo } from '../LSBranchConfig';
@@ -19,6 +20,36 @@ describe(LSBranchConfig.name, () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
+
+  it('rejects empty repository paths in the configuration schema', async () => {
+    jest.spyOn(FileSystem, 'readFileAsync').mockResolvedValue(JSON.stringify({ repos: [{ path: '' }] }));
+    const config: LSBranchConfig = new LSBranchConfig(() => '/config.json');
+
+    await expect(config.getConfigReposAsync()).rejects.toThrow(/fewer than 1 character/);
+  });
+
+  it.each(['.', 'a', 'relative/repo', 'C:relative', ' '])(
+    'rejects a relative repository path of %j',
+    async (repoPath) => {
+      jest
+        .spyOn(FileSystem, 'readFileAsync')
+        .mockResolvedValue(JSON.stringify({ repos: [{ path: repoPath }] }));
+      const config: LSBranchConfig = new LSBranchConfig(() => '/config.json');
+
+      await expect(config.getConfigReposAsync()).rejects.toThrow('absolute-path');
+    }
+  );
+
+  it.each([path.resolve('repo'), path.parse(process.cwd()).root])(
+    'accepts an absolute repository path of %j',
+    async (repoPath) => {
+      const repo: LSBranchConfigurationSchemaRepo = { path: repoPath };
+      jest.spyOn(FileSystem, 'readFileAsync').mockResolvedValue(JSON.stringify({ repos: [repo] }));
+      const config: LSBranchConfig = new LSBranchConfig(() => '/config.json');
+
+      await expect(config.getConfigReposAsync()).resolves.toEqual([repo]);
+    }
+  );
 
   it('shares an in-flight load across concurrent callers', async () => {
     const configData: LSBranchConfigurationSchema = { repos: [{ path: '/repo' }], lastUpdateCheck: 0 };

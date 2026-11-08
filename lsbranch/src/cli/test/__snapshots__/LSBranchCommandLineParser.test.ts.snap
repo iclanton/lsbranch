@@ -104,6 +104,26 @@ Array [
 ]
 `;
 
+exports[`LSBranchCommandLineParser rejects configuration with a relative repository path: terminal output 1`] = `
+Array [
+  "[  error] [red]An unexpected error occurred: Error: JSON validation failed:[n]",
+  "[  error] <project>/fixture-config.json[n]",
+  "[  error] [n]",
+  "[  error] Error: #/repos/0/path[n]",
+  "[  error]        must match format \\"absolute-path\\"[default][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser rejects configuration with an empty repository path: terminal output 1`] = `
+Array [
+  "[  error] [red]An unexpected error occurred: Error: JSON validation failed:[n]",
+  "[  error] <project>/fixture-config.json[n]",
+  "[  error] [n]",
+  "[  error] Error: #/repos/0/path[n]",
+  "[  error]        must NOT have fewer than 1 characters[default][n]",
+]
+`;
+
 exports[`LSBranchCommandLineParser rejects duplicate repositories without saving: terminal output 1`] = `
 Array [
   "[  error] [red]Repo path \\"<project>/fixture-repo\\" already exists[default][n]",

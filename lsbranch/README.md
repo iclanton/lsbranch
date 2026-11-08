@@ -36,6 +36,8 @@ With `--all`, Git command failures are reported for the affected repository with
 
 Repository lookups run with a maximum concurrency of 15, including Git processes with `--all`. Results remain in configuration order.
 
+Configuration is managed by `lsbranch add`, which resolves repository paths before saving them. Stored repository paths must be non-empty and absolute for the current operating system.
+
 ## Development
 
 From the repository root, run `rush install`, then `rush build`. Run `rush test` to build and run tests.

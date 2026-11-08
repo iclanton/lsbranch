@@ -98,7 +98,7 @@ describe(LSBranchCommandLineParser.name, () => {
       'fixture-config.json',
       'add',
       '--path',
-      repoPath,
+      'fixture-repo',
       '--alias',
       'Repo'
     ]);
@@ -379,6 +379,30 @@ describe(LSBranchCommandLineParser.name, () => {
     await parser.executeAsync(['--config', 'fixture-config.json', 'ls', '--json']);
 
     expect(process.exitCode).toBe(1);
+    expect(getTerminalOutput()).toMatchSnapshot('terminal output');
+  });
+
+  it('rejects configuration with an empty repository path', async () => {
+    jest.spyOn(FileSystem, 'readFileAsync').mockResolvedValue(JSON.stringify({ repos: [{ path: '' }] }));
+    const lookup: jest.SpyInstance = jest.spyOn(RepoData, 'getRepoDataAsync');
+
+    await parser.executeAsync(['--config', 'fixture-config.json', 'ls', '--json']);
+
+    expect(process.exitCode).toBe(1);
+    expect(terminalProvider.getErrorOutput()).toContain('fewer than 1 character');
+    expect(lookup).not.toHaveBeenCalled();
+    expect(getTerminalOutput()).toMatchSnapshot('terminal output');
+  });
+
+  it('rejects configuration with a relative repository path', async () => {
+    jest.spyOn(FileSystem, 'readFileAsync').mockResolvedValue(JSON.stringify({ repos: [{ path: '.' }] }));
+    const lookup: jest.SpyInstance = jest.spyOn(RepoData, 'getRepoDataAsync');
+
+    await parser.executeAsync(['--config', 'fixture-config.json', 'ls', '--json']);
+
+    expect(process.exitCode).toBe(1);
+    expect(terminalProvider.getErrorOutput()).toContain('absolute-path');
+    expect(lookup).not.toHaveBeenCalled();
     expect(getTerminalOutput()).toMatchSnapshot('terminal output');
   });
 

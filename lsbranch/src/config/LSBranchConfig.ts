@@ -69,7 +69,14 @@ export class LSBranchConfig {
   public constructor(getConfigPath: () => string | undefined) {
     this.#getConfigPath = getConfigPath;
 
-    this.#schema = JsonSchema.fromLoadedObject(schema);
+    this.#schema = JsonSchema.fromLoadedObject(schema, {
+      customFormats: {
+        'absolute-path': {
+          type: 'string',
+          validate: path.isAbsolute
+        }
+      }
+    });
   }
 
   public async getConfigExistsAsync(): Promise<boolean> {
