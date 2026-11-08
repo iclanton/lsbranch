@@ -4,7 +4,11 @@
 import path from 'node:path';
 
 import { AlreadyReportedError } from '@rushstack/node-core-library';
-import { CommandLineFlagParameter, CommandLineStringParameter } from '@rushstack/ts-command-line';
+import {
+  CommandLineFlagParameter,
+  CommandLineStringParameter,
+  type IRequiredCommandLineStringParameter
+} from '@rushstack/ts-command-line';
 
 import { LSBranchConfigurationSchemaRepo } from '../../config/LSBranchConfig';
 import { getRepoDataAsync, IGetRepoDataErrorResult } from '../../util/RepoData';
@@ -13,7 +17,7 @@ import { ILSBranchActionBaseOptions, LSBranchActionBase } from './LSBranchAction
 export const ADD_ACTION_NAME: string = 'add';
 
 export class AddAction extends LSBranchActionBase {
-  readonly #pathParameter: CommandLineStringParameter;
+  readonly #pathParameter: IRequiredCommandLineStringParameter;
   readonly #aliasParameter: CommandLineStringParameter;
   readonly #noValidate: CommandLineFlagParameter;
 
@@ -55,7 +59,7 @@ export class AddAction extends LSBranchActionBase {
       }
     }
 
-    const resolvedPath: string = path.resolve(this.#pathParameter.value!);
+    const resolvedPath: string = path.resolve(this.#pathParameter.value);
     const configRepo: LSBranchConfigurationSchemaRepo = {
       path: resolvedPath,
       alias: this.#aliasParameter.value

@@ -2,13 +2,13 @@
 // See LICENSE in the project root for license information.
 
 import os from 'node:os';
-import path from 'node:path';
 import { default as semver, SemVer } from 'semver';
-import { IPackageJson, JsonFile } from '@rushstack/node-core-library';
+import { IPackageJson } from '@rushstack/node-core-library';
 import { Terminal } from '@rushstack/terminal';
 
 import { LSBranchConfig } from '../config/LSBranchConfig';
 import { LSBRANCH_TOOL_FILENAME } from '../cli/LSBranchCommandLineParser';
+import packageJson from '../../package.json';
 
 interface INpmQueryResponse {
   'dist-tags'?: {
@@ -35,13 +35,8 @@ export class UpgradeMessagePrinter {
 
     const shouldCheckForUpdates: boolean = await config.getShouldCheckForUpdatesAsync();
     if (shouldCheckForUpdates) {
-      const packageJson: IPackageJson = await JsonFile.loadAsync(
-        path.resolve(__dirname, '..', '..', 'package.json')
-      );
-
-      const latestVersion: SemVer | undefined = await UpgradeMessagePrinter.#getLatestPublishedVersionAsync(
-        packageJson
-      );
+      const latestVersion: SemVer | undefined =
+        await UpgradeMessagePrinter.#getLatestPublishedVersionAsync(packageJson);
       if (latestVersion !== undefined) {
         printUpgradeMessageAsyncFunction = async (terminal: Terminal) => {
           await config.setLastUpdateCheckAsync();
@@ -62,9 +57,7 @@ export class UpgradeMessagePrinter {
     return new UpgradeMessagePrinter(printUpgradeMessageAsyncFunction);
   }
 
-  static async #getLatestPublishedVersionAsync(
-    thisPackageJson: IPackageJson
-  ): Promise<SemVer | undefined> {
+  static async #getLatestPublishedVersionAsync(thisPackageJson: IPackageJson): Promise<SemVer | undefined> {
     try {
       const queryUrl: string = `https://registry.npmjs.org/${thisPackageJson.name}`;
       const userAgent: string = `npm/? node/${process.version} ${os.platform()} ${os.arch()}`;

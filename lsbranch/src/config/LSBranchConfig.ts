@@ -4,6 +4,7 @@
 import path from 'node:path';
 import { FileSystem, JsonFile, JsonSchema } from '@rushstack/node-core-library';
 import { Terminal } from '@rushstack/terminal';
+
 import schema from './lsbranchrc.schema.json';
 import type { LSBranchConfigurationSchema } from './lsbranchrc.schema.json.d.ts';
 

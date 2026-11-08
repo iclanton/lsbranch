@@ -2,8 +2,6 @@
 // See LICENSE in the project root for license information.
 
 import { ChildProcess } from 'node:child_process';
-import { once } from 'node:events';
-import path from 'node:path';
 
 import { Executable, FileSystem } from '@rushstack/node-core-library';
 
@@ -34,68 +32,56 @@ export async function getRepoDataAsync(
     const spawnResult: ChildProcess = Executable.spawn('git', ['branch'], {
       currentWorkingDirectory: repo.path
     });
-    const stdoutParts: string[] = [];
-    const stderrParts: string[] = [];
-    spawnResult.stdout?.on('data', (data: Buffer) => {
-      stdoutParts.push(data.toString());
+    const { stdout, stderr } = await Executable.waitForExitAsync(spawnResult, {
+      encoding: 'utf8',
+      throwOnNonZeroExitCode: true,
+      throwOnSignal: true
     });
-    spawnResult.stderr?.on('data', (data: Buffer) => {
-      stderrParts.push(data.toString());
-    });
-    await once(spawnResult, 'close');
-    const exitCode: number = spawnResult.exitCode!;
-    if (exitCode === 0) {
-      if (stderrParts.length > 0) {
-        return {
-          repo,
-          error: new Error(`git branch wrote to stderr failed: ${stderrParts.join('')}`)
-        };
-      }
-
-      const outputLines: string[] = stdoutParts.join('').split('\n');
-      const allBranches: string[] = [];
-      const checkedOutBranches: string[] = [];
-      for (const outputLine of outputLines) {
-        const trimmedOutputLine: string = outputLine.trim();
-        if (trimmedOutputLine) {
-          if (trimmedOutputLine.startsWith('*')) {
-            checkedOutBranches.push(trimmedOutputLine.substr(1).trim());
-          } else {
-            allBranches.push(trimmedOutputLine);
-          }
-        }
-      }
-
-      if (checkedOutBranches.length === 0) {
-        return {
-          repo,
-          error: new Error(`git branch did not report a checked out branch`)
-        };
-      } else if (checkedOutBranches.length > 1) {
-        const checkedOutBranchList: string = checkedOutBranches.join(', ');
-        return {
-          repo,
-          error: new Error(`git branch reported multiple checked out branches: ${checkedOutBranchList}`)
-        };
-      } else {
-        return { repo, data: { checkedOutBranch: checkedOutBranches[0], otherBranches: allBranches } };
-      }
-    } else {
+    if (stderr) {
       return {
         repo,
-        error: new Error(`git branch failed with exit code ${exitCode}: ${stderrParts.join('')}`)
+        error: new Error(`git branch wrote to stderr: ${stderr}`)
       };
     }
+
+    const outputLines: string[] = stdout.split('\n');
+    const allBranches: string[] = [];
+    const checkedOutBranches: string[] = [];
+    for (const outputLine of outputLines) {
+      const trimmedOutputLine: string = outputLine.trim();
+      if (trimmedOutputLine) {
+        if (trimmedOutputLine.startsWith('*')) {
+          checkedOutBranches.push(trimmedOutputLine.substr(1).trim());
+        } else {
+          allBranches.push(trimmedOutputLine);
+        }
+      }
+    }
+
+    if (checkedOutBranches.length === 0) {
+      return {
+        repo,
+        error: new Error(`git branch did not report a checked out branch`)
+      };
+    } else if (checkedOutBranches.length > 1) {
+      const checkedOutBranchList: string = checkedOutBranches.join(', ');
+      return {
+        repo,
+        error: new Error(`git branch reported multiple checked out branches: ${checkedOutBranchList}`)
+      };
+    } else {
+      return { repo, data: { checkedOutBranch: checkedOutBranches[0], otherBranches: allBranches } };
+    }
   } else {
-    const gitFolderPath: string = path.join(repo.path, '.git');
-    const gitHeadFilePath: string = path.join(gitFolderPath, 'HEAD');
+    const gitFolderPath: string = `${repo.path}/.git`;
+    const gitHeadFilePath: string = `${gitFolderPath}/HEAD`;
 
     let gitHeadFileContents: string;
     try {
       gitHeadFileContents = await FileSystem.readFileAsync(gitHeadFilePath);
     } catch (innerError) {
       let error: Error;
-      if (FileSystem.isNotExistError(innerError as NodeJS.ErrnoException)) {
+      if (FileSystem.isNotExistError(innerError)) {
         const gitFolderExists: boolean = await FileSystem.existsAsync(gitFolderPath);
         if (!gitFolderExists) {
           error = new Error(`.git folder doesn't exist`);
