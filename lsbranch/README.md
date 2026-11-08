@@ -32,6 +32,8 @@ Repo 2                feature/branch
 
 Thats it!
 
+With `--all`, Git command failures are reported for the affected repository without preventing other repositories from being listed.
+
 ## Development
 
 From the repository root, run `rush install`, then `rush build`. Run `rush test` to build and run tests.

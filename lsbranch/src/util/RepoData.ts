@@ -12,31 +12,46 @@ export interface IRepoData {
   otherBranches?: string[];
 }
 
-export interface IGetRepoDataResult {
+interface IGetRepoDataResultBase {
   repo: LSBranchConfigurationSchemaRepo;
 }
 
-export interface IGetRepoDataErrorResult extends IGetRepoDataResult {
+export interface IGetRepoDataErrorResult extends IGetRepoDataResultBase {
   error: Error;
 }
 
-export interface IGetRepoDataSuccessResult extends IGetRepoDataResult {
+export interface IGetRepoDataSuccessResult extends IGetRepoDataResultBase {
   data: IRepoData;
 }
+
+export type IGetRepoDataResult = IGetRepoDataErrorResult | IGetRepoDataSuccessResult;
 
 export async function getRepoDataAsync(
   repo: LSBranchConfigurationSchemaRepo,
   getAllBranches: boolean
-): Promise<IGetRepoDataErrorResult | IGetRepoDataSuccessResult> {
+): Promise<IGetRepoDataResult> {
+  const { path: repoPath } = repo;
   if (getAllBranches) {
     const spawnResult: ChildProcess = Executable.spawn('git', ['branch'], {
-      currentWorkingDirectory: repo.path
+      currentWorkingDirectory: repoPath
     });
-    const { stdout, stderr } = await Executable.waitForExitAsync(spawnResult, {
-      encoding: 'utf8',
-      throwOnNonZeroExitCode: true,
-      throwOnSignal: true
+    const { stdout, stderr, exitCode, signal } = await Executable.waitForExitAsync(spawnResult, {
+      encoding: 'utf8'
     });
+    if (signal) {
+      return {
+        repo,
+        error: new Error(`git branch terminated by signal ${signal}`)
+      };
+    }
+
+    if (exitCode !== 0) {
+      return {
+        repo,
+        error: new Error(`git branch failed with exit code ${exitCode}: ${stderr}`)
+      };
+    }
+
     if (stderr) {
       return {
         repo,
@@ -51,7 +66,7 @@ export async function getRepoDataAsync(
       const trimmedOutputLine: string = outputLine.trim();
       if (trimmedOutputLine) {
         if (trimmedOutputLine.startsWith('*')) {
-          checkedOutBranches.push(trimmedOutputLine.substr(1).trim());
+          checkedOutBranches.push(trimmedOutputLine.slice(1).trim());
         } else {
           allBranches.push(trimmedOutputLine);
         }
@@ -73,7 +88,7 @@ export async function getRepoDataAsync(
       return { repo, data: { checkedOutBranch: checkedOutBranches[0], otherBranches: allBranches } };
     }
   } else {
-    const gitFolderPath: string = `${repo.path}/.git`;
+    const gitFolderPath: string = `${repoPath}/.git`;
     const gitHeadFilePath: string = `${gitFolderPath}/HEAD`;
 
     let gitHeadFileContents: string;
@@ -123,8 +138,8 @@ const REF_PREFIX: string = 'ref: ';
  */
 function parseGitBranchOrSha(gitHeadFileContents: string): string {
   if (gitHeadFileContents.startsWith(REF_PREFIX)) {
-    const ref: string = gitHeadFileContents.substr(REF_PREFIX.length).trim();
-    return ref.substr(ref.indexOf('/', ref.indexOf('/') + 1) + 1);
+    const ref: string = gitHeadFileContents.slice(REF_PREFIX.length).trim();
+    return ref.slice(ref.indexOf('/', ref.indexOf('/') + 1) + 1);
   } else {
     return gitHeadFileContents.trim();
   }

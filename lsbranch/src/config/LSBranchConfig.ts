@@ -16,6 +16,13 @@ const UNIQUE_PROP_NAMES: (keyof LSBranchConfigurationSchemaRepo)[] = ['alias', '
 
 const UPDATE_CHECK_FREQUENCY: number = 24 * 60 * 60 * 1000; // Daily
 
+type PropNameCounters = {
+  [TPropName in keyof LSBranchConfigurationSchemaRepo]-?: Map<
+    LSBranchConfigurationSchemaRepo[TPropName],
+    number
+  >;
+};
+
 export class LSBranchConfig {
   #configPath: string | undefined;
   #isDefaultConfigPath: boolean | undefined;
@@ -39,15 +46,10 @@ export class LSBranchConfig {
   readonly #getConfigPath: () => string | undefined;
   readonly #schema: JsonSchema;
 
-  #configLoaded: boolean = false;
+  #configLoadPromise: Promise<void> | undefined;
   #configExists!: boolean;
   #configData!: LSBranchConfigurationSchema;
-  #propNameCounters!: {
-    [TPropName in Required<keyof LSBranchConfigurationSchemaRepo>]: Map<
-      LSBranchConfigurationSchemaRepo[TPropName],
-      number
-    >;
-  };
+  #propNameCounters!: PropNameCounters;
 
   public constructor(getConfigPath: () => string | undefined) {
     this.#getConfigPath = getConfigPath;
@@ -88,6 +90,7 @@ export class LSBranchConfig {
   }
 
   public async setLastUpdateCheckAsync(): Promise<void> {
+    await this.#ensureConfigLoadedAsync();
     const newConfigData: LSBranchConfigurationSchema = {
       ...this.#configData,
       lastUpdateCheck: Date.now()
@@ -97,13 +100,16 @@ export class LSBranchConfig {
 
   public async tryAddRepoAsync(repo: LSBranchConfigurationSchemaRepo, terminal: Terminal): Promise<boolean> {
     await this.#ensureConfigLoadedAsync();
+    const configData: LSBranchConfigurationSchema = this.#configData;
+    const { repos } = configData;
+    const propNameCounters: PropNameCounters = this.#propNameCounters;
 
     let issues: boolean = false;
 
     for (const propName of UNIQUE_PROP_NAMES) {
       const propValue: unknown | undefined = repo[propName];
       if (propValue !== undefined) {
-        const counter: Map<unknown, number> = this.#propNameCounters[propName];
+        const counter: Map<unknown, number> = propNameCounters[propName];
         const count: number = counter.get(propValue) || 0;
         if (count > 0) {
           terminal.writeErrorLine(`Repo ${propName} "${propValue}" already exists`);
@@ -118,8 +124,8 @@ export class LSBranchConfig {
       return false;
     } else {
       const newConfigData: LSBranchConfigurationSchema = {
-        ...this.#configData,
-        repos: [...this.#configData.repos, repo]
+        ...configData,
+        repos: [...repos, repo]
       };
       await this.#updateConfigDataAsync(newConfigData);
 
@@ -127,30 +133,34 @@ export class LSBranchConfig {
     }
   }
 
-  async #ensureConfigLoadedAsync(): Promise<void> {
-    if (!this.#configLoaded) {
-      let errorThrown: boolean = false;
-      try {
-        this.#configData = await JsonFile.loadAndValidateAsync(this.configPath, this.#schema);
-        this.#configExists = true;
-      } catch (e) {
-        if (FileSystem.isNotExistError(e as NodeJS.ErrnoException)) {
-          this.#configData = {
-            lastUpdateCheck: Date.now(),
-            repos: []
-          };
-          this.#configExists = false;
-        } else {
-          errorThrown = true;
-          throw e;
-        }
-      } finally {
-        if (!errorThrown) {
-          this.#fillPropNameCounters();
-          this.#configLoaded = true;
-        }
+  #ensureConfigLoadedAsync(): Promise<void> {
+    if (!this.#configLoadPromise) {
+      this.#configLoadPromise = this.#loadConfigAsync().catch((error: Error) => {
+        this.#configLoadPromise = undefined;
+        throw error;
+      });
+    }
+
+    return this.#configLoadPromise;
+  }
+
+  async #loadConfigAsync(): Promise<void> {
+    try {
+      this.#configData = await JsonFile.loadAndValidateAsync(this.configPath, this.#schema);
+      this.#configExists = true;
+    } catch (e) {
+      if (FileSystem.isNotExistError(e)) {
+        this.#configData = {
+          lastUpdateCheck: Date.now(),
+          repos: []
+        };
+        this.#configExists = false;
+      } else {
+        throw e;
       }
     }
+
+    this.#fillPropNameCounters();
   }
 
   async #updateConfigDataAsync(newConfigData: LSBranchConfigurationSchema): Promise<void> {
@@ -161,21 +171,27 @@ export class LSBranchConfig {
     this.#configExists = true;
 
     // Only update data if we're able to successfully save the file
+    const { repos: previousRepos } = this.#configData;
+    const { repos } = newConfigData;
     this.#configData = newConfigData;
-    this.#fillPropNameCounters();
+    if (repos !== previousRepos) {
+      this.#fillPropNameCounters();
+    }
   }
 
   #fillPropNameCounters(): void {
-    this.#propNameCounters = {
+    const propNameCounters: PropNameCounters = {
       path: new Map<string, number>(),
       alias: new Map<string, number>()
     };
+    this.#propNameCounters = propNameCounters;
+    const { repos } = this.#configData;
 
-    for (const repo of this.#configData.repos) {
+    for (const repo of repos) {
       for (const propName of UNIQUE_PROP_NAMES) {
         const propValue: unknown | undefined = repo[propName];
         if (propValue !== undefined) {
-          const counter: Map<unknown, number> = this.#propNameCounters[propName];
+          const counter: Map<unknown, number> = propNameCounters[propName];
           const count: number = counter.get(propValue) || 0;
           counter.set(propValue, count + 1);
         }
@@ -187,10 +203,11 @@ export class LSBranchConfig {
     propNames: (keyof LSBranchConfigurationSchemaRepo)[],
     terminal: Terminal
   ): boolean {
+    const propNameCounters: PropNameCounters = this.#propNameCounters;
     let issues: boolean = false;
 
     for (const propName of propNames) {
-      const counter: Map<unknown, number> = this.#propNameCounters[propName];
+      const counter: Map<unknown, number> = propNameCounters[propName];
       for (const [propValue, count] of counter.entries()) {
         if (count > 1) {
           terminal.writeErrorLine(`Repo ${propName} "${propValue}" is specified multiple times.`);
