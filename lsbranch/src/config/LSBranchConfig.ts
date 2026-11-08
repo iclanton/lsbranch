@@ -23,15 +23,15 @@ type PropNameCounters = {
   >;
 };
 
-  function getDefaultConfigPath(): string {
-    const homeFolderPath: string | undefined =
-      process.env[process.platform === 'win32' ? 'USERPROFILE' : 'HOME'];
-    if (!homeFolderPath) {
-      throw new Error('Unable to determine user home folder path.');
-    }
-
-    return `${homeFolderPath}/${LSBRANCH_CONFIG_FILENAME}`;
+function getDefaultConfigPath(): string {
+  const homeFolderPath: string | undefined =
+    process.env[process.platform === 'win32' ? 'USERPROFILE' : 'HOME'];
+  if (!homeFolderPath) {
+    throw new Error('Unable to determine user home folder path.');
   }
+
+  return `${homeFolderPath}/${LSBRANCH_CONFIG_FILENAME}`;
+}
 
 export class LSBranchConfig {
   #configPath: string | undefined;
@@ -39,7 +39,12 @@ export class LSBranchConfig {
 
   public get configPath(): string {
     if (this.#configPath === undefined) {
-      this.#configPath = path.resolve(this.#getConfigPath() || getDefaultConfigPath());
+      const configPath: string | undefined = this.#getConfigPath();
+      if (configPath) {
+        this.#configPath = path.resolve(configPath);
+      } else {
+        this.#configPath = getDefaultConfigPath();
+      }
     }
 
     return this.#configPath;
@@ -66,8 +71,6 @@ export class LSBranchConfig {
 
     this.#schema = JsonSchema.fromLoadedObject(schema);
   }
-
-
 
   public async getConfigExistsAsync(): Promise<boolean> {
     await this.#ensureConfigLoadedAsync();
