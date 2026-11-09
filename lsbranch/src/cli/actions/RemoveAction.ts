@@ -6,7 +6,12 @@ import { AlreadyReportedError } from '@rushstack/node-core-library';
 import { CommandLineStringParameter } from '@rushstack/ts-command-line';
 
 import { LSBranchRepoSelector } from '../../config/LSBranchConfig';
-import { ILSBranchActionBaseOptions, LSBranchActionBase } from './LSBranchActionBase';
+import {
+  ALIAS_PARAMETER_NAME,
+  ILSBranchActionBaseOptions,
+  LSBranchActionBase,
+  PATH_PARAMETER_NAME
+} from './LSBranchActionBase';
 
 export class RemoveAction extends LSBranchActionBase {
   readonly #pathParameter: CommandLineStringParameter;
@@ -21,15 +26,15 @@ export class RemoveAction extends LSBranchActionBase {
       documentation: 'Remove a registered repository by path or alias, without deleting its files.'
     });
     this.#pathParameter = this.defineStringParameter({
-      parameterLongName: '--path',
+      parameterLongName: PATH_PARAMETER_NAME,
       argumentName: 'REPO_PATH',
-      description: 'The path of the registered repository to remove. Mutually exclusive with --alias.'
+      description: `The path of the registered repository to remove. Mutually exclusive with ${ALIAS_PARAMETER_NAME}.`
     });
 
     this.#aliasParameter = this.defineStringParameter({
-      parameterLongName: '--alias',
+      parameterLongName: ALIAS_PARAMETER_NAME,
       argumentName: 'ALIAS',
-      description: 'The exact alias of the registered repository to remove. Mutually exclusive with --path.'
+      description: `The exact alias of the registered repository to remove. Mutually exclusive with ${PATH_PARAMETER_NAME}.`
     });
   }
 
@@ -43,7 +48,7 @@ export class RemoveAction extends LSBranchActionBase {
     } else if (alias !== undefined && repoPath === undefined) {
       selector = { alias };
     } else {
-      terminal.writeErrorLine('Specify exactly one of --path or --alias.');
+      terminal.writeErrorLine(`Specify exactly one of ${PATH_PARAMETER_NAME} or ${ALIAS_PARAMETER_NAME}.`);
       throw new AlreadyReportedError();
     }
 

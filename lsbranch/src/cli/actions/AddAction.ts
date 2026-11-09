@@ -12,7 +12,13 @@ import {
 
 import { LSBranchConfigurationSchemaRepo } from '../../config/LSBranchConfig';
 import { getRepoDataAsync, IGetRepoDataResult } from '../../util/RepoData';
-import { ADD_ACTION_NAME, ILSBranchActionBaseOptions, LSBranchActionBase } from './LSBranchActionBase';
+import {
+  ADD_ACTION_NAME,
+  ALIAS_PARAMETER_NAME,
+  ILSBranchActionBaseOptions,
+  LSBranchActionBase,
+  PATH_PARAMETER_NAME
+} from './LSBranchActionBase';
 
 export class AddAction extends LSBranchActionBase {
   readonly #pathParameter: IRequiredCommandLineStringParameter;
@@ -29,14 +35,14 @@ export class AddAction extends LSBranchActionBase {
     });
 
     this.#pathParameter = this.defineStringParameter({
-      parameterLongName: '--path',
+      parameterLongName: PATH_PARAMETER_NAME,
       argumentName: 'REPO_PATH',
       description: 'The path to the repo root',
       required: true
     });
 
     this.#aliasParameter = this.defineStringParameter({
-      parameterLongName: '--alias',
+      parameterLongName: ALIAS_PARAMETER_NAME,
       argumentName: 'ALIAS',
       description: "The repo's alias"
     });

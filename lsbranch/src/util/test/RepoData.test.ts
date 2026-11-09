@@ -165,6 +165,38 @@ describe(getRepoDataAsync.name, () => {
     });
   });
 
+  it.each(['topic{one,two}', 'topic(one)', 'topic+name', 'topic!name'])(
+    'finds a literal stored branch name containing glob syntax %j',
+    async (branch) => {
+      await writeFileAsync('repo/.git/packed-refs', `${COMMIT} refs/heads/${branch}\n`);
+
+      await expect(getRepoDataAsync(repo, false, branch)).resolves.toEqual({
+        repo,
+        data: {
+          checkedOutBranch: 'main',
+          matchingBranches: [branch],
+          hasLocalBranch: true,
+          branchIsCheckedOut: false
+        }
+      });
+    }
+  );
+
+  it('preserves literal matches alongside glob-expanded matches without duplicates', async () => {
+    const branch: string = 'topic{one,two}';
+    await writeFileAsync('repo/.git/refs/heads/topicone', `${COMMIT}\n`);
+    await writeFileAsync('repo/.git/packed-refs', [
+      `${COMMIT} refs/heads/topicone`,
+      `${COMMIT} refs/heads/topictwo`,
+      `${COMMIT} refs/heads/${branch}`,
+      ''
+    ].join('\n'));
+
+    const result = await getRepoDataAsync(repo, false, branch);
+
+    expect(result).toHaveProperty('data.matchingBranches', ['topicone', 'topictwo', branch]);
+  });
+
   it('does not read a symbolic-link ref target', async () => {
     await writeFileAsync('repo/.git/refs/heads/link', `${COMMIT}\n`);
     const headsDirectory: string = `${repo.path}/.git/refs/heads`;

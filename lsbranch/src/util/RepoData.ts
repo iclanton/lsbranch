@@ -59,7 +59,9 @@ export async function getRepoDataAsync(
 
       if (branchPattern !== undefined) {
         const matcher: Minimatch = new Minimatch(branchPattern, { nonegate: true, nocomment: true });
-        const matchingBranches: string[] = branches.filter((branch) => matcher.match(branch));
+        const matchingBranches: string[] = branches.filter((branch) =>
+          branch === branchPattern || matcher.match(branch)
+        );
         data.matchingBranches = matchingBranches;
         data.hasLocalBranch = matchingBranches.length > 0;
         data.branchIsCheckedOut = hasBranchHead && matchingBranches.includes(checkedOutBranch);

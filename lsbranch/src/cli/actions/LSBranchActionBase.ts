@@ -11,6 +11,8 @@ import { getRepoDataAsync, IGetRepoDataResult } from '../../util/RepoData';
 import { LSBRANCH_TOOL_FILENAME } from '../LSBranchCommandLineParser';
 
 export const ADD_ACTION_NAME: string = 'add';
+export const PATH_PARAMETER_NAME: string = '--path';
+export const ALIAS_PARAMETER_NAME: string = '--alias';
 
 export interface ILSBranchActionBaseOptions {
   terminal: Terminal;

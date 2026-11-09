@@ -44,6 +44,8 @@ Configuration is managed by `lsbranch add`, which resolves repository paths befo
 
 Run `lsbranch find --branch feature/name` to find every registered clone containing that local branch, including clones where it is not checked out. Shell-style globs are also supported: `lsbranch find --branch 'feature/**'`, `--branch 'release-?'`, or `--branch '{main,develop}'`. Patterns match whole branch names; `*` does not cross `/`, while `**` does. Quote patterns to prevent shell expansion. Grep-style regular expressions are not used.
 
+Literal branch-name matches are always included, even when the name contains glob syntax such as braces. Glob-expanded matches are included alongside them without duplicates.
+
 Text output lists every matching branch per clone and highlights matching checked-out branches in green. Use `--json` for matching clones, their `matchingBranches` and `branchIsCheckedOut` status, and individual repository errors; branches found only in remote-tracking refs do not match. A search with no matches succeeds with an empty JSON array or a text message.
 
 ### Removing a clone
