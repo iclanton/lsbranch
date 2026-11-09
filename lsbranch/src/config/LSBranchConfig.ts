@@ -11,6 +11,7 @@ import type { LSBranchConfigurationSchema } from './lsbranchrc.schema.json.d.ts'
 export const LSBRANCH_CONFIG_FILENAME: string = '.lsbranchrc.json';
 
 export type LSBranchConfigurationSchemaRepo = LSBranchConfigurationSchema['repos'][number];
+export type LSBranchRepoSelector = { path: string; alias?: never } | { alias: string; path?: never };
 
 const UNIQUE_PROP_NAMES: (keyof LSBranchConfigurationSchemaRepo)[] = ['alias', 'path'];
 
@@ -143,6 +144,44 @@ export class LSBranchConfig {
 
       return true;
     }
+  }
+
+  public async tryRemoveRepoAsync(selector: LSBranchRepoSelector, terminal: Terminal): Promise<boolean> {
+    await this.#ensureConfigLoadedAsync();
+    const configData: LSBranchConfigurationSchema = this.#configData;
+    const { repos } = configData;
+    const { path: repoPath, alias } = selector;
+    if ((repoPath === undefined) === (alias === undefined)) {
+      terminal.writeErrorLine('Specify exactly one of --path or --alias.');
+      return false;
+    }
+
+    const remainingRepos: LSBranchConfigurationSchemaRepo[] = [];
+    let matchCount: number = 0;
+    for (const repo of repos) {
+      const { path, alias: repoAlias } = repo;
+      if (repoPath !== undefined ? path === repoPath : repoAlias === alias) {
+        matchCount++;
+      } else {
+        remainingRepos.push(repo);
+      }
+    }
+
+    if (matchCount !== 1) {
+      const description: string = repoPath !== undefined
+        ? `path ${JSON.stringify(repoPath)}`
+        : `alias ${JSON.stringify(alias)}`;
+      terminal.writeErrorLine(matchCount === 0
+        ? `No registered repository matches ${description}.`
+        : `Multiple registered repositories match ${description}.`);
+      return false;
+    }
+
+    await this.#updateConfigDataAsync({
+      ...configData,
+      repos: remainingRepos
+    });
+    return true;
   }
 
   #ensureConfigLoadedAsync(): Promise<void> {

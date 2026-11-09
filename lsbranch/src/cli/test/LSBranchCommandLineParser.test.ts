@@ -2,11 +2,12 @@
 // See LICENSE in the project root for license information.
 
 import path from 'node:path';
-import { ChildProcess } from 'node:child_process';
-import { Async, Executable, FileSystem, IWaitForExitResult, JsonFile } from '@rushstack/node-core-library';
+import { Async, FileSystem, JsonFile } from '@rushstack/node-core-library';
 import { AnsiEscape, Colorize, ConsoleTerminalProvider, StringBufferTerminalProvider } from '@rushstack/terminal';
 import { LSBranchCommandLineParser } from '../LSBranchCommandLineParser';
 import * as RepoData from '../../util/RepoData';
+import * as GitRepository from '../../util/GitRepository';
+import * as RepoIdentity from '../../util/RepoIdentity';
 import { LSBranchConfigurationSchemaRepo } from '../../config/LSBranchConfig';
 
 describe(LSBranchCommandLineParser.name, () => {
@@ -45,6 +46,14 @@ describe(LSBranchCommandLineParser.name, () => {
     parser = new LSBranchCommandLineParser();
     terminalProvider = new StringBufferTerminalProvider(true);
     parser.terminal.registerProvider(terminalProvider);
+    jest.spyOn(GitRepository, 'getGitPathsAsync').mockImplementation(async (repoPath) => {
+      const gitDirectory: string = `${repoPath}/.git`;
+      return { gitDirectory, commonDirectory: gitDirectory };
+    });
+    jest.spyOn(RepoIdentity, 'getRepoIdentityAsync').mockImplementation(async (repoPath) => ({
+      commonDirectory: `${repoPath}/.git`,
+      remoteKeys: []
+    }));
   });
 
   afterEach(() => {
@@ -53,16 +62,298 @@ describe(LSBranchCommandLineParser.name, () => {
   });
 
   it('prints the global help', () => {
-    const helpText: string = AnsiEscape.formatForTests(parser.renderHelpText());
+    const helpText: string = AnsiEscape.formatForTests(parser.renderHelpText()).replace(/[ \t]+$/gm, '');
     expect(helpText).toMatchSnapshot();
+  });
+
+  it.each([false, true])('finds checked-out and non-checked-out local branches with JSON=%s', async (json) => {
+    const repos: LSBranchConfigurationSchemaRepo[] = [
+      { path: '/repos/one', alias: 'One' },
+      { path: '/repos/two', alias: 'Two' },
+      { path: '/repos/three', alias: 'Three' },
+      { path: '/repos/bad', alias: 'Bad' }
+    ];
+    jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({ repos, lastUpdateCheck: Date.now() });
+    const lookup: jest.SpyInstance = jest.spyOn(RepoData, 'getRepoDataAsync')
+      .mockResolvedValueOnce({ repo: repos[0], data: { checkedOutBranch: 'main', hasLocalBranch: true, branchIsCheckedOut: true, matchingBranches: ['main'] } })
+      .mockResolvedValueOnce({ repo: repos[1], data: { checkedOutBranch: 'feature', hasLocalBranch: true, branchIsCheckedOut: false, matchingBranches: ['main'] } })
+      .mockResolvedValueOnce({ repo: repos[2], data: { checkedOutBranch: 'topic', hasLocalBranch: false, matchingBranches: [] } })
+      .mockResolvedValueOnce({ repo: repos[3], error: new Error('Unreadable repository') });
+    const args: string[] = ['find', '--branch', 'main'];
+    if (json) {
+      args.push('--json');
+    }
+
+    await parser.executeAsync(args);
+
+    expect(process.exitCode).toBe(0);
+    expect(lookup).toHaveBeenNthCalledWith(1, repos[0], false, 'main');
+    expect(getTerminalOutput()).toMatchSnapshot('terminal output');
+  });
+
+  it.each([false, true])('reports no branch matches with JSON=%s', async (json) => {
+    const repo: LSBranchConfigurationSchemaRepo = { path: '/repo', alias: 'Repo' };
+    jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({ repos: [repo], lastUpdateCheck: Date.now() });
+    jest.spyOn(RepoData, 'getRepoDataAsync').mockResolvedValue({
+      repo, data: { checkedOutBranch: 'main', hasLocalBranch: false, matchingBranches: [] }
+    });
+    const args: string[] = ['find', '--branch', 'absent'];
+    if (json) {
+      args.push('--json');
+    }
+
+    await parser.executeAsync(args);
+
+    expect(process.exitCode).toBe(0);
+    expect(getTerminalOutput()).toMatchSnapshot('terminal output');
+  });
+
+  it('rejects an empty branch pattern', async () => {
+    const lookup: jest.SpyInstance = jest.spyOn(RepoData, 'getRepoDataAsync');
+
+    await parser.executeAsync(['find', '--branch', '', '--json']);
+
+    expect(process.exitCode).toBe(1);
+    expect(lookup).not.toHaveBeenCalled();
+    expect(getTerminalOutput()).toMatchSnapshot('terminal output');
+  });
+
+  it.each([false, true])('prints all matching branches for a glob with JSON=%s', async (json) => {
+    const repo: LSBranchConfigurationSchemaRepo = { path: '/repo', alias: 'Repo' };
+    const unmatchedRepo: LSBranchConfigurationSchemaRepo = { path: '/unmatched', alias: 'Unmatched' };
+    jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({
+      repos: [repo, unmatchedRepo], lastUpdateCheck: Date.now()
+    });
+    const lookup: jest.SpyInstance = jest.spyOn(RepoData, 'getRepoDataAsync')
+      .mockResolvedValueOnce({
+        repo,
+        data: {
+          checkedOutBranch: 'feature/current',
+          hasLocalBranch: true,
+          branchIsCheckedOut: true,
+          matchingBranches: ['feature/current', 'feature/nested/topic']
+        }
+      })
+      .mockResolvedValueOnce({
+        repo: unmatchedRepo,
+        data: { checkedOutBranch: 'main', hasLocalBranch: false, matchingBranches: [] }
+      });
+
+    await parser.executeAsync(json
+      ? ['find', '--branch', 'feature/**', '--json']
+      : ['find', '--branch', 'feature/**']);
+
+    expect(process.exitCode).toBe(0);
+    expect(lookup).toHaveBeenNthCalledWith(1, repo, false, 'feature/**');
+    expect(getTerminalOutput()).toMatchSnapshot('terminal output');
+  });
+
+  it('requires a branch name for find', async () => {
+    jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    await expect(parser.executeWithoutErrorHandlingAsync(['find', '--json'])).rejects.toThrow();
+  });
+
+  it.each(['path', 'alias'])('unregisters a clone by %s without Git lookups', async (selector) => {
+    const repoPath: string = path.resolve('fixture-repo');
+    const retainedRepo: LSBranchConfigurationSchemaRepo = { path: path.resolve('retained-repo'), alias: 'Retained' };
+    const lastUpdateCheck: number = Date.now();
+    jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({
+      repos: [{ path: repoPath, alias: 'Repo' }, retainedRepo], lastUpdateCheck
+    });
+    const saveConfig: jest.SpyInstance = jest.spyOn(JsonFile, 'saveAsync').mockResolvedValue(true);
+    const lookup: jest.SpyInstance = jest.spyOn(RepoData, 'getRepoDataAsync');
+    const args: string[] = ['--config', 'fixture-config.json', 'remove'];
+    args.push(...(selector === 'path' ? ['--path', 'fixture-repo'] : ['--alias', 'Repo']));
+
+    await parser.executeAsync(args);
+
+    expect(process.exitCode).toBe(0);
+    expect(lookup).not.toHaveBeenCalled();
+    expect(saveConfig).toHaveBeenCalledWith(
+      { repos: [retainedRepo], lastUpdateCheck },
+      path.resolve('fixture-config.json'),
+      { updateExistingFile: true, prettyFormatting: true }
+    );
+    expect(getTerminalOutput()).toMatchSnapshot('terminal output');
+  });
+
+  it.each([[], ['--path', '/repo', '--alias', 'Repo']])(
+    'requires exactly one removal selector for arguments %j',
+    async (...args) => {
+      jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({ repos: [], lastUpdateCheck: Date.now() });
+      const saveConfig: jest.SpyInstance = jest.spyOn(JsonFile, 'saveAsync').mockResolvedValue(true);
+
+      await parser.executeAsync(['remove', ...args]);
+
+      expect(process.exitCode).toBe(1);
+      expect(saveConfig).not.toHaveBeenCalled();
+      expect(getTerminalOutput()).toMatchSnapshot('terminal output');
+    }
+  );
+
+  it('reports removal of an unregistered alias', async () => {
+    jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({ repos: [], lastUpdateCheck: Date.now() });
+    const saveConfig: jest.SpyInstance = jest.spyOn(JsonFile, 'saveAsync').mockResolvedValue(true);
+
+    await parser.executeAsync(['remove', '--alias', 'Absent']);
+
+    expect(process.exitCode).toBe(1);
+    expect(saveConfig).not.toHaveBeenCalled();
+    expect(getTerminalOutput()).toMatchSnapshot('terminal output');
+  });
+
+  it.each([false, true])('groups clones, sorts aliases, and sends ambiguity warnings to stderr with JSON=%s', async (json) => {
+    const repos: LSBranchConfigurationSchemaRepo[] = [
+      { path: '/repos/Zulu', alias: 'Zulu' },
+      { path: '/repos/Bridge', alias: 'Bridge' },
+      { path: '/repos/Beta', alias: 'Beta' },
+      { path: '/repos/Alpha', alias: 'Alpha' }
+    ];
+    const identities: Map<string, RepoIdentity.IRepoIdentity> = new Map([
+      ['/repos/Zulu', { commonDirectory: '/git/Zulu', remoteKeys: ['remote:host/z'] }],
+      ['/repos/Bridge', { commonDirectory: '/git/Bridge', remoteKeys: ['remote:host/a', 'remote:host/b'] }],
+      ['/repos/Beta', { commonDirectory: '/git/Beta', remoteKeys: ['remote:host/b'] }],
+      ['/repos/Alpha', { commonDirectory: '/git/Alpha', remoteKeys: ['remote:host/a'] }]
+    ]);
+    jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({ repos, lastUpdateCheck: Date.now() });
+    jest.spyOn(RepoData, 'getRepoDataAsync').mockImplementation(async (repo) => ({
+      repo, data: { checkedOutBranch: 'main' }
+    }));
+    jest.spyOn(RepoIdentity, 'getRepoIdentityAsync').mockImplementation(async (repoPath) => {
+      const identity: RepoIdentity.IRepoIdentity | undefined = identities.get(repoPath);
+      if (!identity) {
+        throw new Error('Unexpected identity lookup');
+      }
+
+      return identity;
+    });
+
+    await parser.executeAsync(json ? ['--json'] : []);
+
+    expect(process.exitCode).toBe(0);
+    expect(terminalProvider.getWarningOutput()).toContain('Bridge');
+    expect(getTerminalOutput()).toMatchSnapshot('terminal output');
+    if (json) {
+      expect(JSON.parse(terminalProvider.getOutput({ normalizeSpecialCharacters: false }))).toEqual(
+        [repos[3], repos[2], repos[1], repos[0]].map((repo) => ({ repo, data: { checkedOutBranch: 'main' } }))
+      );
+    }
+  });
+
+  it('preserves grouping through registered clones that do not match a find query', async () => {
+    const repos: LSBranchConfigurationSchemaRepo[] = [
+      { path: '/repos/Alpha', alias: 'Alpha' },
+      { path: '/repos/Bridge', alias: 'Bridge' },
+      { path: '/repos/Beta', alias: 'Beta' }
+    ];
+    jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({ repos, lastUpdateCheck: Date.now() });
+    jest.spyOn(RepoData, 'getRepoDataAsync').mockImplementation(async (repo) => ({
+      repo, data: {
+        checkedOutBranch: 'main',
+        hasLocalBranch: repo.alias !== 'Bridge',
+        matchingBranches: repo.alias !== 'Bridge' ? ['feature'] : []
+      }
+    }));
+    jest.spyOn(RepoIdentity, 'getRepoIdentityAsync').mockImplementation(async (repoPath) => ({
+      commonDirectory: `${repoPath}/.git`,
+      remoteKeys: repoPath.endsWith('Bridge') ? ['a', 'b'] : [repoPath.endsWith('Alpha') ? 'a' : 'b']
+    }));
+
+    await parser.executeAsync(['find', '--branch', 'feature']);
+
+    expect(process.exitCode).toBe(0);
+    expect(getTerminalOutput()).toMatchSnapshot('terminal output');
+  });
+
+  it('warns about uncertain grouping without hiding known branch data', async () => {
+    const repo: LSBranchConfigurationSchemaRepo = { path: '/repo', alias: 'Repo' };
+    jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({ repos: [repo], lastUpdateCheck: Date.now() });
+    jest.spyOn(RepoData, 'getRepoDataAsync').mockResolvedValue({ repo, data: { checkedOutBranch: 'main' } });
+    jest.spyOn(RepoIdentity, 'getRepoIdentityAsync')
+      .mockRejectedValue(new GitRepository.GitRepositoryError('Unsupported include condition'));
+
+    await parser.executeAsync([]);
+
+    expect(process.exitCode).toBe(0);
+    expect(getTerminalOutput()).toMatchSnapshot('terminal output');
+  });
+
+  it('does not highlight a matching SHA-shaped branch when HEAD is detached', async () => {
+    const hash: string = 'a'.repeat(40);
+    const repo: LSBranchConfigurationSchemaRepo = { path: '/repo', alias: 'Repo' };
+    jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({ repos: [repo], lastUpdateCheck: Date.now() });
+    jest.spyOn(RepoData, 'getRepoDataAsync').mockResolvedValue({
+      repo, data: { checkedOutBranch: hash, hasLocalBranch: true, branchIsCheckedOut: false, matchingBranches: [hash] }
+    });
+
+    await parser.executeAsync(['find', '--branch', hash]);
+
+    expect(process.exitCode).toBe(0);
+    expect(getTerminalOutput()).toMatchSnapshot('terminal output');
   });
 
   it('prints the help for each action', () => {
     for (const action of parser.actions) {
-      const helpText: string = AnsiEscape.formatForTests(action.renderHelpText());
+      const helpText: string = AnsiEscape.formatForTests(action.renderHelpText()).replace(/[ \t]+$/gm, '');
       expect(helpText).toMatchSnapshot(action.actionName);
     }
   });
+
+  it.each([
+    [],
+    ['--config', 'fixture-config.json'],
+    ['-c', 'fixture-config.json'],
+    ['--config=fixture-config.json'],
+    ['-cfixture-config.json']
+  ])('defaults to listing for arguments %j', async (...args) => {
+    jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({
+      repos: [{ path: '/repo', alias: 'Repo' }],
+      lastUpdateCheck: Date.now()
+    });
+    jest.spyOn(FileSystem, 'readFileAsync').mockResolvedValue('ref: refs/heads/main\n');
+    const originalArgs: string[] = [...args];
+
+    await parser.executeAsync(args);
+
+    expect(process.exitCode).toBe(0);
+    expect(parser.selectedAction?.actionName).toBe('ls');
+    expect(getTerminalOutput()).toEqual(['[    log] Repo  main[n]']);
+    expect(args).toEqual(originalArgs);
+  });
+
+  it('accepts listing flags without an explicit action', async () => {
+    jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({
+      repos: [{ path: '/repo', alias: 'Repo' }],
+      lastUpdateCheck: Date.now()
+    });
+    jest.spyOn(FileSystem, 'readFileAsync').mockResolvedValue('ref: refs/heads/main\n');
+
+    await parser.executeAsync(['--config', 'fixture-config.json', '--json']);
+
+    expect(process.exitCode).toBe(0);
+    expect(parser.selectedAction?.actionName).toBe('ls');
+    expect(getTerminalOutput()).toMatchSnapshot('terminal output');
+  });
+
+  it('preserves global help without executing an action', async () => {
+    const printHelp: jest.SpyInstance = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+    await parser.executeWithoutErrorHandlingAsync(['--help']);
+
+    expect(parser.selectedAction).toBeUndefined();
+    expect(printHelp).toHaveBeenCalledWith(expect.stringContaining('usage: lsbranch'));
+    expect(getTerminalOutput()).toEqual([]);
+  });
+
+  it.each([['--config'], ['--config', '--json'], ['unknown-action']])(
+    'preserves invalid argument errors for %j',
+    async (...args) => {
+      jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      await expect(parser.executeWithoutErrorHandlingAsync(args)).rejects.toThrow();
+      expect(parser.selectedAction).toBeUndefined();
+    }
+  );
 
   it('lists the current branch as JSON', async () => {
     const repoPath: string = path.resolve('fixture-repo');
@@ -162,6 +453,9 @@ describe(LSBranchCommandLineParser.name, () => {
     });
     jest.spyOn(FileSystem, 'readFileAsync').mockRejectedValue(missingConfigError);
     jest.spyOn(FileSystem, 'existsAsync').mockResolvedValue(false);
+    jest
+      .spyOn(GitRepository, 'getGitPathsAsync')
+      .mockRejectedValue(new GitRepository.GitRepositoryError(".git folder doesn't exist"));
     const saveConfig: jest.SpyInstance = jest.spyOn(JsonFile, 'saveAsync').mockResolvedValue(true);
 
     await parser.executeAsync(['--config', 'fixture-config.json', 'add', '--path', repoPath]);
@@ -182,37 +476,35 @@ describe(LSBranchCommandLineParser.name, () => {
       ],
       lastUpdateCheck: Date.now()
     });
-    jest.spyOn(Executable, 'spawn').mockReturnValue(new ChildProcess());
-    const successResult: IWaitForExitResult<string> = {
-      exitCode: 0,
-      signal: null,
-      stdout: '* main\n  feature\n',
-      stderr: ''
-    };
-    const errorResult: IWaitForExitResult<string> = {
-      exitCode: 128,
-      signal: null,
-      stdout: '',
-      stderr: 'not a git repository'
-    };
     jest
-      .spyOn(Executable, 'waitForExitAsync')
-      .mockResolvedValueOnce(successResult)
-      .mockResolvedValueOnce(errorResult);
+      .spyOn(RepoData, 'getRepoDataAsync')
+      .mockResolvedValueOnce({
+        repo: { path: path.resolve('valid-repo'), alias: 'Valid' },
+        data: { checkedOutBranch: 'main', otherBranches: ['feature'] }
+      })
+      .mockResolvedValueOnce({
+        repo: { path: path.resolve('invalid-repo'), alias: 'Invalid' },
+        error: new Error('git branch failed with exit code 128: not a git repository')
+      });
 
     await parser.executeAsync(['--config', 'fixture-config.json', 'ls', '--all']);
 
     expect(process.exitCode).toBe(0);
-    expect(writeLine).toHaveBeenNthCalledWith(1, `Valid    ${Colorize.green('main')}`);
-    expect(writeLine).toHaveBeenNthCalledWith(2, '         feature');
     expect(writeLine).toHaveBeenNthCalledWith(
-      3,
-      `Invalid  ${Colorize.red('git branch failed with exit code 128: not a git repository')}`
+      1, `Invalid  ${Colorize.red('git branch failed with exit code 128: not a git repository')}`
+    );
+    expect(writeLine).toHaveBeenNthCalledWith(2);
+    expect(writeLine).toHaveBeenNthCalledWith(3, `Valid  ${Colorize.green('main')}`);
+    expect(writeLine).toHaveBeenNthCalledWith(
+      4, '       feature'
     );
     expect(getTerminalOutput()).toMatchSnapshot('terminal output');
   });
 
   it('aligns borderless table columns using the visible width of colored aliases', async () => {
+    jest.spyOn(RepoIdentity, 'getRepoIdentityAsync').mockResolvedValue({
+      commonDirectory: '/shared', remoteKeys: []
+    });
     const { terminal } = parser;
     const writeLine: jest.SpyInstance = jest.spyOn(terminal, 'writeLine');
     jest.spyOn(JsonFile, 'loadAndValidateAsync').mockResolvedValue({
@@ -227,8 +519,8 @@ describe(LSBranchCommandLineParser.name, () => {
     await parser.executeAsync(['--config', 'fixture-config.json', 'ls']);
 
     expect(process.exitCode).toBe(0);
-    expect(writeLine).toHaveBeenNthCalledWith(1, `${Colorize.cyan('Repo')}    main`);
-    expect(writeLine).toHaveBeenNthCalledWith(2, 'Longer  main');
+    expect(writeLine).toHaveBeenNthCalledWith(1, 'Longer  main');
+    expect(writeLine).toHaveBeenNthCalledWith(2, `${Colorize.cyan('Repo')}    main`);
     expect(getTerminalOutput()).toMatchSnapshot('terminal output');
   });
 
@@ -247,11 +539,19 @@ describe(LSBranchCommandLineParser.name, () => {
     expect(getTerminalOutput()).toMatchSnapshot('terminal output');
   });
 
+  it('rejects the removed --other flag', async () => {
+    jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    await expect(parser.executeWithoutErrorHandlingAsync(['--other', '--json'])).rejects.toThrow();
+    expect(parser.selectedAction).toBeUndefined();
+  });
+
   it.each([false, true])(
     'limits repository lookups to 15 and preserves JSON order with --all=%s',
     async (getAllBranches) => {
       const repos: LSBranchConfigurationSchemaRepo[] = Array.from({ length: 35 }, (value, index) => ({
-        path: path.resolve(`repo-${index}`)
+        path: path.resolve(`repo-${index}`),
+        alias: `Repo${index.toString().padStart(2, '0')}`
       }));
       const repoIndexes: Map<string, number> = new Map(repos.map((repo, index) => [repo.path, index]));
       const { terminal } = parser;

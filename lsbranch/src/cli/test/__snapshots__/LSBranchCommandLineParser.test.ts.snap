@@ -1,25 +1,93 @@
 // Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
+exports[`LSBranchCommandLineParser accepts listing flags without an explicit action: terminal output 1`] = `
+Array [
+  "[    log] [{\\"repo\\":{\\"path\\":\\"/repo\\",\\"alias\\":\\"Repo\\"},\\"data\\":{\\"checkedOutBranch\\":\\"main\\"}}][n]",
+]
+`;
+
 exports[`LSBranchCommandLineParser adds a repository while loading the configuration only once: terminal output 1`] = `Array []`;
 
 exports[`LSBranchCommandLineParser aligns borderless table columns using the visible width of colored aliases: terminal output 1`] = `
 Array [
-  "[    log] [cyan]Repo[default]    main[n]",
   "[    log] Longer  main[n]",
+  "[    log] [cyan]Repo[default]    main[n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser does not highlight a matching SHA-shaped branch when HEAD is detached: terminal output 1`] = `
+Array [
+  "[    log] Repo  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa[n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser finds checked-out and non-checked-out local branches with JSON=false: terminal output 1`] = `
+Array [
+  "[    log] Bad  [red]Unreadable repository[default][n]",
+  "[    log] [n]",
+  "[    log] One  [green]main[default][n]",
+  "[    log] [n]",
+  "[    log] Two  main[n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser finds checked-out and non-checked-out local branches with JSON=true: terminal output 1`] = `
+Array [
+  "[    log] [{\\"repo\\":{\\"path\\":\\"/repos/bad\\",\\"alias\\":\\"Bad\\"},\\"error\\":{}},{\\"repo\\":{\\"path\\":\\"/repos/one\\",\\"alias\\":\\"One\\"},\\"data\\":{\\"checkedOutBranch\\":\\"main\\",\\"hasLocalBranch\\":true,\\"branchIsCheckedOut\\":true,\\"matchingBranches\\":[\\"main\\"]}},{\\"repo\\":{\\"path\\":\\"/repos/two\\",\\"alias\\":\\"Two\\"},\\"data\\":{\\"checkedOutBranch\\":\\"feature\\",\\"hasLocalBranch\\":true,\\"branchIsCheckedOut\\":false,\\"matchingBranches\\":[\\"main\\"]}}][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser groups clones, sorts aliases, and sends ambiguity warnings to stderr with JSON=false: terminal output 1`] = `
+Array [
+  "[warning] [yellow]Ambiguous repository grouping: clone \\"Bridge\\" connects otherwise separate repository groups.[default][n]",
+  "[    log] Alpha   main[n]",
+  "[    log] Beta    main[n]",
+  "[    log] Bridge  main[n]",
+  "[    log] [n]",
+  "[    log] Zulu  main[n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser groups clones, sorts aliases, and sends ambiguity warnings to stderr with JSON=true: terminal output 1`] = `
+Array [
+  "[warning] [yellow]Ambiguous repository grouping: clone \\"Bridge\\" connects otherwise separate repository groups.[default][n]",
+  "[    log] [{\\"repo\\":{\\"path\\":\\"/repos/Alpha\\",\\"alias\\":\\"Alpha\\"},\\"data\\":{\\"checkedOutBranch\\":\\"main\\"}},{\\"repo\\":{\\"path\\":\\"/repos/Beta\\",\\"alias\\":\\"Beta\\"},\\"data\\":{\\"checkedOutBranch\\":\\"main\\"}},{\\"repo\\":{\\"path\\":\\"/repos/Bridge\\",\\"alias\\":\\"Bridge\\"},\\"data\\":{\\"checkedOutBranch\\":\\"main\\"}},{\\"repo\\":{\\"path\\":\\"/repos/Zulu\\",\\"alias\\":\\"Zulu\\"},\\"data\\":{\\"checkedOutBranch\\":\\"main\\"}}][n]",
 ]
 `;
 
 exports[`LSBranchCommandLineParser lists all branches and individual Git failures with aligned continuation rows: terminal output 1`] = `
 Array [
-  "[    log] Valid    [green]main[default][n]",
-  "[    log]          feature[n]",
   "[    log] Invalid  [red]git branch failed with exit code 128: not a git repository[default][n]",
+  "[    log] [n]",
+  "[    log] Valid  [green]main[default][n]",
+  "[    log]        feature[n]",
 ]
 `;
 
 exports[`LSBranchCommandLineParser lists the current branch as JSON: terminal output 1`] = `
 Array [
   "[    log] [{\\"repo\\":{\\"path\\":\\"<project>/fixture-repo\\",\\"alias\\":\\"Repo\\"},\\"data\\":{\\"checkedOutBranch\\":\\"feature/nested\\"}}][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser preserves grouping through registered clones that do not match a find query: terminal output 1`] = `
+Array [
+  "[warning] [yellow]Ambiguous repository grouping: clone \\"Bridge\\" connects otherwise separate repository groups.[default][n]",
+  "[    log] Alpha  feature[n]",
+  "[    log] Beta   feature[n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser prints all matching branches for a glob with JSON=false: terminal output 1`] = `
+Array [
+  "[    log] Repo  [green]feature/current[default][n]",
+  "[    log]       feature/nested/topic[n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser prints all matching branches for a glob with JSON=true: terminal output 1`] = `
+Array [
+  "[    log] [{\\"repo\\":{\\"path\\":\\"/repo\\",\\"alias\\":\\"Repo\\"},\\"data\\":{\\"checkedOutBranch\\":\\"feature/current\\",\\"hasLocalBranch\\":true,\\"branchIsCheckedOut\\":true,\\"matchingBranches\\":[\\"feature/current\\",\\"feature/nested/topic\\"]}}][n]",
 ]
 `;
 
@@ -32,15 +100,17 @@ Array [
 
 exports[`LSBranchCommandLineParser prints branch names and detached HEADs with an unaliased repository: terminal output 1`] = `
 Array [
-  "[    log] Main             main[n]",
-  "[    log] Feature          feature/nested[n]",
   "[    log] /repos/detached  0123456789abcdef0123456789abcdef01234567[n]",
+  "[    log] [n]",
+  "[    log] Feature  feature/nested[n]",
+  "[    log] [n]",
+  "[    log] Main  main[n]",
 ]
 `;
 
 exports[`LSBranchCommandLineParser prints mixed success and error results as JSON without upgrade notices: terminal output 1`] = `
 Array [
-  "[    log] [{\\"repo\\":{\\"path\\":\\"/repos/valid\\",\\"alias\\":\\"Valid\\"},\\"data\\":{\\"checkedOutBranch\\":\\"main\\",\\"otherBranches\\":[\\"feature\\",\\"other\\"]}},{\\"repo\\":{\\"path\\":\\"/repos/invalid\\",\\"alias\\":\\"Invalid\\"},\\"error\\":{}}][n]",
+  "[    log] [{\\"repo\\":{\\"path\\":\\"/repos/invalid\\",\\"alias\\":\\"Invalid\\"},\\"error\\":{}},{\\"repo\\":{\\"path\\":\\"/repos/valid\\",\\"alias\\":\\"Valid\\"},\\"data\\":{\\"checkedOutBranch\\":\\"main\\",\\"otherBranches\\":[\\"feature\\",\\"other\\"]}}][n]",
 ]
 `;
 
@@ -55,6 +125,8 @@ Positional arguments:
   <command>
     ls                  List branches.
     add                 Add a repo.
+    find                Find clones containing a local branch.
+    remove              Unregister a repository.
 
 Optional arguments:
   -h, --help            Show this help message and exit.
@@ -62,7 +134,7 @@ Optional arguments:
                         Override the config file path. Defaults to ~/.
                         lsbranchrc.json
 
-[bold]For detailed help about a specific command, use: lsbranch <command> 
+[bold]For detailed help about a specific command, use: lsbranch <command>
 -h[normal]
 "
 `;
@@ -74,8 +146,23 @@ Optional arguments:
   -h, --help        Show this help message and exit.
   --path REPO_PATH  The path to the repo root
   --alias ALIAS     The repo's alias
-  --no-validate     If specified, do not ensure that the repo being added 
+  --no-validate     If specified, do not ensure that the repo being added
                     exists and is valid.
+"
+`;
+
+exports[`LSBranchCommandLineParser prints the help for each action: find 1`] = `
+"usage: lsbranch find [-h] --branch PATTERN [--json]
+
+Matches local branch names using a shell-style glob, whether or not they are
+checked out.
+
+Optional arguments:
+  -h, --help        Show this help message and exit.
+  --branch PATTERN  A local branch name or shell-style glob, for example
+                    \\"feature/**\\". Quote patterns to prevent shell expansion.
+  --json            Present matching clones and repository errors in JSON
+                    format.
 "
 `;
 
@@ -86,6 +173,20 @@ Optional arguments:
   -h, --help  Show this help message and exit.
   --json      If specified, present data in JSON format.
   -a, --all   If specified, display all local branches.
+"
+`;
+
+exports[`LSBranchCommandLineParser prints the help for each action: remove 1`] = `
+"usage: lsbranch remove [-h] [--path REPO_PATH] [--alias ALIAS]
+
+Remove a registered repository by path or alias, without deleting its files.
+
+Optional arguments:
+  -h, --help        Show this help message and exit.
+  --path REPO_PATH  The path of the registered repository to remove. Mutually
+                    exclusive with --alias.
+  --alias ALIAS     The exact alias of the registered repository to remove.
+                    Mutually exclusive with --path.
 "
 `;
 
@@ -101,6 +202,12 @@ exports[`LSBranchCommandLineParser rejects a nonexistent repository without savi
 Array [
   "[  error] [red]Specified repo path is not valid: .git folder doesn't exist[default][n]",
   "[  error] [red]If this is expected, provide the \\"--no-validate\\" flag[default][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser rejects an empty branch pattern: terminal output 1`] = `
+Array [
+  "[  error] [red]The branch pattern must not be empty.[default][n]",
 ]
 `;
 
@@ -136,6 +243,24 @@ Array [
 ]
 `;
 
+exports[`LSBranchCommandLineParser reports no branch matches with JSON=false: terminal output 1`] = `
+Array [
+  "[    log] No registered clones have local branches matching \\"absent\\".[n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser reports no branch matches with JSON=true: terminal output 1`] = `
+Array [
+  "[    log] [][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser reports removal of an unregistered alias: terminal output 1`] = `
+Array [
+  "[  error] [red]No registered repository matches alias \\"Absent\\".[default][n]",
+]
+`;
+
 exports[`LSBranchCommandLineParser reports unconfigured repositories at the default config path: terminal output 1`] = `
 Array [
   "[  error] [red]No repos have been configured. Add a repo with \\"lsbranch add\\"[default][n]",
@@ -145,5 +270,36 @@ Array [
 exports[`LSBranchCommandLineParser reports unexpected configuration failures: terminal output 1`] = `
 Array [
   "[  error] [red]An unexpected error occurred: Error: Invalid configuration[default][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser requires exactly one removal selector for arguments "--path": terminal output 1`] = `
+Array [
+  "[  error] [red]Specify exactly one of --path or --alias.[default][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser requires exactly one removal selector for arguments %j: terminal output 1`] = `
+Array [
+  "[  error] [red]Specify exactly one of --path or --alias.[default][n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser unregisters a clone by alias without Git lookups: terminal output 1`] = `
+Array [
+  "[    log] Removed registered repository: Repo[n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser unregisters a clone by path without Git lookups: terminal output 1`] = `
+Array [
+  "[    log] Removed registered repository: <project>/fixture-repo[n]",
+]
+`;
+
+exports[`LSBranchCommandLineParser warns about uncertain grouping without hiding known branch data: terminal output 1`] = `
+Array [
+  "[warning] [yellow]Cannot determine repository group for \\"Repo\\": Unsupported include condition[default][n]",
+  "[    log] Repo  main[n]",
 ]
 `;
