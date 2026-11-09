@@ -129,15 +129,77 @@ describe(getRepoIdentityAsync.name, () => {
     await expect(getRepoIdentityAsync(repoPath)).rejects.toThrow('insteadOf URL rewrites are not supported');
   });
 
-  it.each(['true', 'yes', 'on', '1', ''])('explicitly reports enabled worktreeConfig value %j', async (value) => {
+  it.each(['true', 'yes', 'on', '1', '2', '-1'])('explicitly reports enabled worktreeConfig value %j', async (value) => {
     await writeConfigAsync(`[extensions]\n worktreeConfig = ${value}\n`);
     await FileSystem.writeFileAsync(`${repoPath}/.git/config.worktree`, '[remote "origin"]\n url = https://example.invalid/shared.git\n');
 
     await expect(getRepoIdentityAsync(repoPath)).rejects.toThrow('worktreeConfig is not supported');
   });
 
-  it('supports explicitly disabled worktreeConfig', async () => {
-    await writeConfigAsync('[extensions]\n worktreeConfig = false # disabled\n[remote "origin"]\n url = https://example.invalid/shared.git\n');
+  it('treats a valueless worktreeConfig key as enabled', async () => {
+    await writeConfigAsync('[extensions]\n worktreeConfig # enabled\n');
+
+    await expect(getRepoIdentityAsync(repoPath)).rejects.toThrow('worktreeConfig is not supported');
+  });
+
+  it.each(['', 'false', 'no', 'off', '0', '-0'])('supports explicitly disabled worktreeConfig value %j', async (value) => {
+    await writeConfigAsync(`[extensions]\n worktreeConfig = ${value} # disabled\n[remote "origin"]\n url = https://example.invalid/shared.git\n`);
+
+    const { remoteKeys } = await getRepoIdentityAsync(repoPath);
+
+    expect(remoteKeys).toEqual(['remote:example.invalid/shared']);
+  });
+
+  it.each(['false', ''])('uses a later %j assignment to disable earlier worktreeConfig', async (value) => {
+    await writeConfigAsync(`[extensions]\n worktreeConfig = true\n worktreeConfig = ${value}\n[remote "origin"]\n url = https://example.invalid/shared.git\n`);
+
+    const { remoteKeys } = await getRepoIdentityAsync(repoPath);
+
+    expect(remoteKeys).toEqual(['remote:example.invalid/shared']);
+  });
+
+  it('allows an included setting to disable earlier worktreeConfig', async () => {
+    await writeConfigAsync('[extensions]\n worktreeConfig = true\n[include]\n path = ../disabled.conf\n[remote "origin"]\n url = https://example.invalid/shared.git\n');
+    await FileSystem.writeFileAsync(`${repoPath}/disabled.conf`, '[extensions]\n worktreeConfig = false\n');
+
+    const { remoteKeys } = await getRepoIdentityAsync(repoPath);
+
+    expect(remoteKeys).toEqual(['remote:example.invalid/shared']);
+  });
+
+  it('allows a later setting to override enabled worktreeConfig from an include', async () => {
+    await writeConfigAsync('[include]\n path = ../enabled.conf\n[extensions]\n worktreeConfig = false\n[remote "origin"]\n url = https://example.invalid/shared.git\n');
+    await FileSystem.writeFileAsync(`${repoPath}/enabled.conf`, '[extensions]\n worktreeConfig\n');
+
+    const { remoteKeys } = await getRepoIdentityAsync(repoPath);
+
+    expect(remoteKeys).toEqual(['remote:example.invalid/shared']);
+  });
+
+  it('reports worktreeConfig enabled by a later included setting', async () => {
+    await writeConfigAsync('[extensions]\n worktreeConfig = false\n[include]\n path = ../enabled.conf\n');
+    await FileSystem.writeFileAsync(`${repoPath}/enabled.conf`, '[extensions]\n worktreeConfig = true\n');
+
+    await expect(getRepoIdentityAsync(repoPath)).rejects.toThrow('worktreeConfig is not supported');
+  });
+
+  it('does not apply worktreeConfig from an unmatched conditional include', async () => {
+    await writeConfigAsync('[includeIf "onbranch:main"]\n path = ../enabled.conf\n[remote "origin"]\n url = https://example.invalid/shared.git\n');
+    await FileSystem.writeFileAsync(`${repoPath}/enabled.conf`, '[extensions]\n worktreeConfig = true\n');
+
+    const { remoteKeys } = await getRepoIdentityAsync(repoPath);
+
+    expect(remoteKeys).toEqual(['remote:example.invalid/shared']);
+  });
+
+  it('reports an invalid worktreeConfig boolean value', async () => {
+    await writeConfigAsync('[extensions]\n worktreeConfig = invalid\n');
+
+    await expect(getRepoIdentityAsync(repoPath)).rejects.toThrow('Invalid boolean value');
+  });
+
+  it('evaluates only the final worktreeConfig boolean value', async () => {
+    await writeConfigAsync('[extensions]\n worktreeConfig = invalid\n worktreeConfig = false\n[remote "origin"]\n url = https://example.invalid/shared.git\n');
 
     const { remoteKeys } = await getRepoIdentityAsync(repoPath);
 

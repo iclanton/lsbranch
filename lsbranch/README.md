@@ -60,7 +60,7 @@ Aliases sort alphabetically within each group, with paths used when there is no 
 
 A clone connecting otherwise separate repository groups produces an ambiguity warning. Git config includes, `gitdir`/`gitdir/i`, and `onbranch` conditions are supported. Unsupported include conditions, malformed configuration, and unreadable identity metadata produce a warning and leave that clone ungrouped rather than guessing its identity.
 
-Repository-local `insteadOf` URL rewrites and enabled `worktreeConfig` are currently unsupported for grouping. Repositories using these features are left ungrouped with a warning; their branch listings remain available.
+Repository-local `insteadOf` URL rewrites and enabled `worktreeConfig` are currently unsupported for grouping. `worktreeConfig` uses its final value after processing includes; an explicit empty assignment disables it, while a valueless key enables it. Repositories using these features are left ungrouped with a warning; their branch listings remain available.
 
 ## Development
 
