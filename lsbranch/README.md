@@ -68,4 +68,6 @@ From the repository root, run `rush install`, then `rush build`. Run `rush test`
 
 Terminal-output snapshots capture severity markers, ANSI styling, spacing, and output order. Fixture paths are normalized so snapshots are independent of the checkout location and operating system.
 
+Filesystem test fixtures use predictable, suite-specific folders under `temp/tests/` in the project directory, located from the test file via `PackageJsonLookup` rather than the working directory. Each suite resets its fixture folder before each test and removes it afterward.
+
 When upgrading `@rushstack/heft-node-rig`, keep the explicit `typescript` dev dependency aligned with the rig's TypeScript dependency range. Heft shares its compiler program with ESLint, so the compiler and ESLint's parser must resolve the same TypeScript version.

@@ -1,15 +1,18 @@
 // Copyright (c) Ian Clanton-Thuon. All rights reserved. Licensed under the MIT license.
 // See LICENSE in the project root for license information.
 
-import { randomUUID } from 'node:crypto';
-import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { FileSystem } from '@rushstack/node-core-library';
+import { FileSystem, PackageJsonLookup } from '@rushstack/node-core-library';
 import { getRepoIdentityAsync, normalizeRemoteUrl } from '../RepoIdentity';
 
 describe(getRepoIdentityAsync.name, () => {
-  let fixturePath: string;
+  const projectDir: string | undefined = PackageJsonLookup.instance.tryGetPackageFolderFor(__dirname);
+  if (projectDir === undefined) {
+    throw new Error('Unable to locate the project root for repository-identity tests.');
+  }
+
+  const fixturePath: string = `${projectDir}/temp/tests/repo-identity`;
   let repoPath: string;
 
   async function writeConfigAsync(contents: string): Promise<void> {
@@ -17,7 +20,7 @@ describe(getRepoIdentityAsync.name, () => {
   }
 
   beforeEach(async () => {
-    fixturePath = `${os.tmpdir()}/lsbranch-identity-test-${randomUUID()}`;
+    await FileSystem.ensureEmptyFolderAsync(fixturePath);
     repoPath = `${fixturePath}/repo`;
     await FileSystem.ensureFolderAsync(`${repoPath}/.git`);
     await FileSystem.writeFileAsync(`${repoPath}/.git/HEAD`, 'ref: refs/heads/feature/nested\n');

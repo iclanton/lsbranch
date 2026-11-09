@@ -1,10 +1,8 @@
 // Copyright (c) Ian Clanton-Thuon. All rights reserved. Licensed under the MIT license.
 // See LICENSE in the project root for license information.
 
-import { randomUUID } from 'node:crypto';
-import os from 'node:os';
 import path from 'node:path';
-import { Executable, FileSystem, FolderItem } from '@rushstack/node-core-library';
+import { Executable, FileSystem, FolderItem, PackageJsonLookup } from '@rushstack/node-core-library';
 
 import { LSBranchConfigurationSchemaRepo } from '../../config/LSBranchConfig';
 import { getRepoDataAsync } from '../RepoData';
@@ -13,7 +11,12 @@ import { getGitPathsAsync } from '../GitRepository';
 const COMMIT: string = 'a'.repeat(40);
 
 describe(getRepoDataAsync.name, () => {
-  let fixturePath: string;
+  const projectDir: string | undefined = PackageJsonLookup.instance.tryGetPackageFolderFor(__dirname);
+  if (projectDir === undefined) {
+    throw new Error('Unable to locate the project root for repository-data tests.');
+  }
+
+  const fixturePath: string = `${projectDir}/temp/tests/repo-data`;
   let repo: LSBranchConfigurationSchemaRepo;
 
   async function writeFileAsync(filename: string, contents: string): Promise<void> {
@@ -22,7 +25,7 @@ describe(getRepoDataAsync.name, () => {
   }
 
   beforeEach(async () => {
-    fixturePath = `${os.tmpdir()}/lsbranch-refs-test-${randomUUID()}`;
+    await FileSystem.ensureEmptyFolderAsync(fixturePath);
     repo = { path: `${fixturePath}/repo` };
     await writeFileAsync('repo/.git/HEAD', 'ref: refs/heads/main\n');
     jest.spyOn(Executable, 'spawn').mockImplementation(() => {
