@@ -5,6 +5,7 @@ import { FileSystem } from '@rushstack/node-core-library';
 import { Minimatch } from 'minimatch';
 
 import { LSBranchConfigurationSchemaRepo } from '../config/LSBranchConfig';
+import { GitConfigError } from './GitConfig';
 import {
   getGitPathsAsync,
   GitRepositoryError,
@@ -70,7 +71,9 @@ export async function getRepoDataAsync(
 
     return { repo, data };
   } catch (error) {
-    if (error instanceof Error && (error instanceof GitRepositoryError || FileSystem.isErrnoException(error))) {
+    if (error instanceof Error && (
+      error instanceof GitRepositoryError || error instanceof GitConfigError || FileSystem.isErrnoException(error)
+    )) {
       return { repo, error };
     }
 

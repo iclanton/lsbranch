@@ -7,50 +7,11 @@ import { fileURLToPath } from 'node:url';
 import { minimatch } from 'minimatch';
 import { FileSystem } from '@rushstack/node-core-library';
 import { getGitPathsAsync, GitRepositoryError, readOptionalGitFileAsync } from './GitRepository';
+import { parseGitConfig } from './GitConfig';
 
 export interface IRepoIdentity {
   commonDirectory: string;
   remoteKeys: string[];
-}
-
-function decodeConfigValue(raw: string): string {
-  let value: string = '';
-  let pendingSpaces: string = '';
-  let quoted: boolean = false;
-  for (let index: number = 0; index < raw.length; index++) {
-    const character: string = raw[index];
-    if (!quoted && (character === '#' || character === ';')) {
-      break;
-    }
-
-    if (character === '"') {
-      value += pendingSpaces;
-      pendingSpaces = '';
-      quoted = !quoted;
-    } else if (character === '\\') {
-      const escaped: string | undefined = raw[++index];
-      const escapes: Record<string, string> = { n: '\n', t: '\t', b: '\b', '"': '"', '\\': '\\' };
-      if (escaped === undefined || escapes[escaped] === undefined) {
-        throw new GitRepositoryError('Invalid escape in Git configuration');
-      }
-
-      value += pendingSpaces + escapes[escaped];
-      pendingSpaces = '';
-    } else if (!quoted && /\s/.test(character)) {
-      if (value) {
-        pendingSpaces += character;
-      }
-    } else {
-      value += pendingSpaces + character;
-      pendingSpaces = '';
-    }
-  }
-
-  if (quoted) {
-    throw new GitRepositoryError('Unterminated quote in Git configuration');
-  }
-
-  return value;
 }
 
 function matchesGitGlob(value: string, pattern: string, ignoreCase: boolean = false): boolean {
@@ -115,38 +76,15 @@ async function readRemoteUrlsAsync(
   stack.add(filename);
   try {
     const urls: string[] = [];
-    let section: string = '';
-    let subsection: string = '';
-    for (const line of contents.replace(/\\\r?\n/g, '').split(/\r?\n/)) {
-      if (!line.trim() || /^\s*[#;]/.test(line)) {
-        continue;
-      }
-
-      if (line.trimStart().startsWith('[')) {
-        const header: RegExpMatchArray | null = line.match(
-          /^\s*\[([a-zA-Z0-9.-]+)(?:\s+"((?:[^"\\]|\\.)*)")?\]\s*(?:[#;].*)?$/
-        );
-        if (!header) {
-          throw new GitRepositoryError('Invalid section header in Git configuration');
+    for (const { section, subsection, key, value } of parseGitConfig(contents)) {
+      if (section === 'url' && key === 'insteadof') {
+        throw new GitRepositoryError('Git insteadOf URL rewrites are not supported; repository identity is uncertain');
+      } else if (section === 'extensions' && !subsection && key === 'worktreeconfig') {
+        const normalizedValue: string = value.toLowerCase();
+        if (!['false', 'no', 'off', '0'].includes(normalizedValue)) {
+          throw new GitRepositoryError('Git worktreeConfig is not supported; repository identity is uncertain');
         }
-
-        section = header[1].toLowerCase();
-        subsection = header[2] === undefined ? '' : decodeConfigValue(`"${header[2]}"`);
-        if (section.startsWith('remote.')) {
-          section = 'remote';
-        }
-
-        continue;
-      }
-
-      const entry: RegExpMatchArray | null = line.match(/^\s*([a-zA-Z][a-zA-Z0-9-]*)\s*(?:=\s*(.*))?$/);
-      if (!entry) {
-        throw new GitRepositoryError('Invalid entry in Git configuration');
-      }
-
-      const key: string = entry[1].toLowerCase();
-      const value: string = decodeConfigValue(entry[2] ?? 'true');
-      if (section === 'remote' && key === 'url') {
+      } else if (section === 'remote' && key === 'url') {
         if (!value) {
           throw new GitRepositoryError('An empty remote URL makes repository identity uncertain');
         }

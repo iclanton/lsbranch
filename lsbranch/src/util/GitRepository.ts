@@ -3,6 +3,7 @@
 
 import path from 'node:path';
 import { Async, FileSystem, FileSystemStats, FolderItem } from '@rushstack/node-core-library';
+import { parseGitConfig } from './GitConfig';
 
 const INVALID_BRANCH_CHARACTERS: ReadonlySet<string> = new Set(['~', '^', ':', '?', '*', '[', '\\']);
 
@@ -36,7 +37,9 @@ export async function getGitPathsAsync(repoPath: string): Promise<IGitPaths> {
     }
 
     const gitDirPath: string = match[1];
-    gitDirectory = path.isAbsolute(gitDirPath) ? gitDirPath : path.resolve(repoPath, gitDirPath);
+    gitDirectory = path.isAbsolute(gitDirPath)
+      ? gitDirPath
+      : path.resolve(await FileSystem.getRealPathAsync(repoPath), gitDirPath);
   } catch (error) {
     if (FileSystem.isNotExistError(error)) {
       throw new GitRepositoryError(".git folder doesn't exist");
@@ -55,7 +58,9 @@ export async function getGitPathsAsync(repoPath: string): Promise<IGitPaths> {
       throw new GitRepositoryError('Invalid Git commondir path');
     }
 
-    commonDirectory = path.isAbsolute(commonDir) ? commonDir : path.resolve(gitDirectory, commonDir);
+    commonDirectory = path.isAbsolute(commonDir)
+      ? commonDir
+      : path.resolve(await FileSystem.getRealPathAsync(gitDirectory), commonDir);
     const stats: FileSystemStats = await FileSystem.getStatisticsAsync(commonDirectory);
     if (!stats.isDirectory()) {
       throw new GitRepositoryError('The Git common directory is not a directory');
@@ -101,9 +106,18 @@ export function parseGitHead(headContents: string): string {
 }
 
 export async function readLocalBranchesAsync(commonDirectory: string): Promise<string[]> {
-  const reftable: string | undefined = await readOptionalGitFileAsync(`${commonDirectory}/config`);
-  if (reftable && /^\s*refStorage\s*=\s*"?reftable"?\s*$/im.test(reftable)) {
+  const config: string | undefined = await readOptionalGitFileAsync(`${commonDirectory}/config`);
+  let refStorage: string = 'files';
+  for (const { section, subsection, key, value } of parseGitConfig(config ?? '')) {
+    if (section === 'extensions' && !subsection && key === 'refstorage') {
+      refStorage = value;
+    }
+  }
+
+  if (refStorage === 'reftable') {
     throw new GitRepositoryError('Git reftable reference storage is not supported');
+  } else if (refStorage !== 'files') {
+    throw new GitRepositoryError('Unknown Git reference storage format');
   }
 
   const branches: Set<string> = new Set();

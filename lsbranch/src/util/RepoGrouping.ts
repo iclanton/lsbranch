@@ -4,6 +4,7 @@
 import { Async, FileSystem } from '@rushstack/node-core-library';
 import { AnsiEscape, ITerminal } from '@rushstack/terminal';
 import { GitRepositoryError } from './GitRepository';
+import { GitConfigError } from './GitConfig';
 import { IGetRepoDataResult } from './RepoData';
 import { getRepoIdentityAsync, IRepoIdentity } from './RepoIdentity';
 
@@ -40,7 +41,9 @@ export async function groupRepoResultsAsync(
     try {
       return { identity: await getRepoIdentityAsync(path) };
     } catch (error) {
-      if (error instanceof Error && (error instanceof GitRepositoryError || FileSystem.isErrnoException(error))) {
+      if (error instanceof Error && (
+        error instanceof GitRepositoryError || error instanceof GitConfigError || FileSystem.isErrnoException(error)
+      )) {
         return { error };
       }
 

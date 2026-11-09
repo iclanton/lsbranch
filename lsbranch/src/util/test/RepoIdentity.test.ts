@@ -71,6 +71,76 @@ describe(getRepoIdentityAsync.name, () => {
     });
   });
 
+  it.each([
+    'bare = false # cache path C:\\\n',
+    '# cache path C:\\\n',
+    'filemode ; explanation\n',
+    'bare # explanation\n',
+    'bare = false ; cache path C:\\\r\n'
+  ])('preserves the next remote header after config line %j', async (line) => {
+    await writeConfigAsync(`[core]\n${line}[remote "origin"]\n url = https://example.invalid/shared.git\n`);
+
+    const { remoteKeys } = await getRepoIdentityAsync(repoPath);
+
+    expect(remoteKeys).toEqual(['remote:example.invalid/shared']);
+  });
+
+  it('does not treat an escaped backslash at the end of a value as a continuation', async () => {
+    await writeConfigAsync([
+      '[core]',
+      ' key = value\\\\',
+      '[remote "origin"]',
+      ' url = https://example.invalid/shared.git',
+      ''
+    ].join('\n'));
+
+    const { remoteKeys } = await getRepoIdentityAsync(repoPath);
+
+    expect(remoteKeys).toEqual(['remote:example.invalid/shared']);
+  });
+
+  it('supports quoted value continuations containing comment characters', async () => {
+    await writeConfigAsync([
+      '[core]',
+      ' key = "comment # and ;\\',
+      ' characters"',
+      '[remote "origin"]',
+      ' url = https://example.invalid/shared.git',
+      ''
+    ].join('\n'));
+
+    const { remoteKeys } = await getRepoIdentityAsync(repoPath);
+
+    expect(remoteKeys).toEqual(['remote:example.invalid/shared']);
+  });
+
+  it('warns through an explicit unsupported error for insteadOf rewrites', async () => {
+    await writeConfigAsync([
+      '[url "https://example.invalid/"]',
+      ' insteadOf = shortcut:',
+      '[remote "origin"]',
+      ' url = shortcut:org/repo.git',
+      ''
+    ].join('\n'));
+
+    await expect(getRepoIdentityAsync(repoPath)).rejects.toThrow('insteadOf URL rewrites are not supported');
+  });
+
+  it.each(['true', 'yes', 'on', '1', ''])('explicitly reports enabled worktreeConfig value %j', async (value) => {
+    await writeConfigAsync(`[extensions]\n worktreeConfig = ${value}\n`);
+    await FileSystem.writeFileAsync(`${repoPath}/.git/config.worktree`, '[remote "origin"]\n url = https://example.invalid/shared.git\n');
+
+    await expect(getRepoIdentityAsync(repoPath)).rejects.toThrow('worktreeConfig is not supported');
+  });
+
+  it('supports explicitly disabled worktreeConfig', async () => {
+    await writeConfigAsync('[extensions]\n worktreeConfig = false # disabled\n[remote "origin"]\n url = https://example.invalid/shared.git\n');
+
+    const { remoteKeys } = await getRepoIdentityAsync(repoPath);
+
+    expect(remoteKeys).toEqual(['remote:example.invalid/shared']);
+  });
+
   it('reads relative configuration includes', async () => {
     await writeConfigAsync('[include]\n path = ../included.conf\n');
     await FileSystem.writeFileAsync(`${repoPath}/included.conf`, '[remote "origin"]\n url = https://example.invalid/shared.git\n');

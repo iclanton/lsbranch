@@ -93,6 +93,39 @@ describe(getRepoDataAsync.name, () => {
     });
   });
 
+  it('resolves relative gitdir paths from the canonical checkout directory', async () => {
+    const checkout: LSBranchConfigurationSchemaRepo = { path: `${fixturePath}/nested/alias` };
+    await writeFileAsync('checkout/.git', 'gitdir: ../repo/.git\n');
+    await FileSystem.ensureFolderAsync(`${fixturePath}/nested`);
+    await FileSystem.createSymbolicLinkJunctionAsync({
+      linkTargetPath: `${fixturePath}/checkout`,
+      newLinkPath: checkout.path
+    });
+    await writeFileAsync('nested/repo/.git/HEAD', 'ref: refs/heads/wrong-repository\n');
+
+    await expect(getRepoDataAsync(checkout, false)).resolves.toEqual({
+      repo: checkout, data: { checkedOutBranch: 'main' }
+    });
+  });
+
+  it('resolves relative commondir paths from the canonical Git directory', async () => {
+    const worktree: LSBranchConfigurationSchemaRepo = { path: `${fixturePath}/worktree` };
+    await writeFileAsync('repo/.git/worktrees/linked/HEAD', 'ref: refs/heads/linked\n');
+    await writeFileAsync('repo/.git/worktrees/linked/commondir', '../..\n');
+    await writeFileAsync('repo/.git/packed-refs', `${COMMIT} refs/heads/main\n`);
+    await FileSystem.ensureFolderAsync(`${fixturePath}/nested`);
+    await FileSystem.createSymbolicLinkJunctionAsync({
+      linkTargetPath: `${fixturePath}/repo/.git/worktrees/linked`,
+      newLinkPath: `${fixturePath}/nested/git-alias`
+    });
+    await writeFileAsync('worktree/.git', `gitdir: ${fixturePath}/nested/git-alias\n`);
+    await writeFileAsync('packed-refs', `${COMMIT} refs/heads/wrong-repository\n`);
+
+    await expect(getRepoDataAsync(worktree, true)).resolves.toEqual({
+      repo: worktree, data: { checkedOutBranch: 'linked', otherBranches: ['main'] }
+    });
+  });
+
   it('supports a gitdir file without a commondir file', async () => {
     const checkout: LSBranchConfigurationSchemaRepo = { path: `${fixturePath}/checkout` };
     await writeFileAsync('checkout/.git', 'gitdir: ../repo/.git\n');
@@ -304,12 +337,32 @@ describe(getRepoDataAsync.name, () => {
     });
   });
 
-  it('explicitly rejects unsupported reftable storage', async () => {
-    await writeFileAsync('repo/.git/config', '[extensions]\n\trefStorage = reftable\n');
+  it.each([
+    '[extensions]\n\trefStorage = reftable\n',
+    '[extensions]\n\trefStorage = "reftable" # comment\n',
+    '[extensions]\n\trefStorage = reftable ; comment\n'
+  ])('explicitly rejects unsupported reftable storage in %j', async (config) => {
+    await writeFileAsync('repo/.git/config', config);
 
     await expect(getRepoDataAsync(repo, true)).resolves.toEqual({
       repo,
       error: new Error('Git reftable reference storage is not supported')
+    });
+  });
+
+  it('does not treat a refStorage key outside extensions as a storage backend', async () => {
+    await writeFileAsync('repo/.git/config', '[alias]\n refStorage = reftable\n');
+
+    await expect(getRepoDataAsync(repo, true)).resolves.toEqual({
+      repo, data: { checkedOutBranch: 'main', otherBranches: [] }
+    });
+  });
+
+  it('uses the final extensions.refStorage value', async () => {
+    await writeFileAsync('repo/.git/config', '[extensions]\n refStorage = reftable\n refStorage = files\n');
+
+    await expect(getRepoDataAsync(repo, true)).resolves.toEqual({
+      repo, data: { checkedOutBranch: 'main', otherBranches: [] }
     });
   });
 
